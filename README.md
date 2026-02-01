@@ -78,7 +78,7 @@ nombre_variable: STRING = "Hola"
 
 ```
 
-### 4.1 Tipos comunes
+### 4.1 Tipos básicos comunes
 
 Se definen los siguientes tipos básicos
 
@@ -86,6 +86,32 @@ Se definen los siguientes tipos básicos
 * FLOAT: Números con coma flotante
 * STRING: Cadenas de caracteres
 * BOOLEAN: Boolean (true/false)
+* CHAR
+
+### 4.2 STRING
+
+Se supone que STRING tiene al menos los siguientes métodos comunes:
+
+* length()
+* charAt(pos)
+* trim()
+
+En caso de no existir, se debería implementar.
+
+### 4.3 Arrays
+
+Se muestran arrays como lo siguiente:
+
+```text
+array_de_strings: STRING[] = []
+array_de_objetos: UnaClase[] = []
+```
+
+Suponemos que array también tiene los siguentes métodos:
+
+* length()
+* push(valor)
+* Se recupera un valor con nombre_variable[posicion]
 
 ---
 

@@ -27,7 +27,7 @@ CLASS Node
         block_text	= block_text
 		value 		= trimToNotNull(value)
 
-        normalized_name	= normalize(name)
+        normalized_name	= normalizeChars(name)
         
         IF isEmpty(namespace)
             qualified_name = normalized_name
