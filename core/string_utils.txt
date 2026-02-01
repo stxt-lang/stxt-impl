@@ -1,7 +1,7 @@
 FUNCTION compactSpaces (str)
 END FUNCTION
 
-FUNCTION normalize (str)
+FUNCTION normalizeChars (str)
 END FUNCTION
 
 FUNCTION lowerCase (str)
