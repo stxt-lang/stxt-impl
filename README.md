@@ -28,8 +28,9 @@ RETURN
 FUNCTION
 PROCEDURE
 CLASS
-STRUCTURE
 END
+NULL
+CONSTRUCTOR
 ```
 
 Para mejorar la legibilidad, se recomienda usar finales explícitos:
@@ -247,6 +248,12 @@ CLASS Order
     FIELD id
     FIELD total_price
     FIELD is_paid
+    
+    CONSTRUCTOR (id, total_price, is_paid)
+    	id = id
+    	total_price = total_price
+    	is_paid = is_paid    	
+    END CONSTRUCTOR
 
     PROCEDURE markAsPaid()
         is_paid = true

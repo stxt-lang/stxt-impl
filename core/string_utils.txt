@@ -11,3 +11,5 @@ FUNCTION lowerCase(string)
 END FUNCTION
 
 trimToNotNull
+
+rightTrim

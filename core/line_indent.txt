@@ -1,0 +1,78 @@
+CLASS LineIndent
+    FIELD indent_level: INTEGER
+    FIELD line_without_indent: STRING
+
+    CONSTRUCTOR LineIndent(indent_level, line_without_indent)
+        indent_level = indent_level
+        line_without_indent = line_without_indent
+    END CONSTRUCTOR
+
+END CLASS
+
+FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, num_line: INTEGER): LineIndent
+
+    # Initialize indentation parsing state
+    level: INTEGER = 0
+    spaces: INTEGER = 0
+    pointer: INTEGER = 0
+
+    WHILE pointer < line.length()
+
+        c: CHAR = line.charAt(pointer)
+
+        IF c == SPACE
+            spaces = spaces + 1
+
+            IF spaces == TAB_SPACES
+                level = level + 1
+                spaces = 0
+            END IF
+
+        ELSE IF c == TAB
+            level = level + 1
+            spaces = 0
+
+        ELSE IF c == COMMENT_CHAR
+            RETURN NULL
+
+        ELSE
+            # First non space/tab/comment character: end of indentation
+            BREAK
+        END IF
+
+        pointer = pointer + 1
+
+        # Inside text block: indentation deeper than parent
+        IF last_node_block AND level > last_level
+            trimmed_line = rightTrim(line.substring(pointer))
+            RETURN LineIndent(level, trimmed_line)
+        END IF
+
+    END WHILE
+
+    # At this point we are outside a text block (if any)
+
+    # Empty or whitespace-only line
+    IF pointer == line.length()
+        IF last_node_block
+            RETURN LineIndent(last_level + 1, "")
+        ELSE
+            RETURN NULL
+        END IF
+    END IF
+
+    # Invalid indentation: spaces not multiple of TAB_SPACES
+    IF spaces > 0
+        Exception(num_line, "INVALID_NUMBER_SPACES", "There are " + spaces + " spaces before node")
+    END IF
+
+    # Validate indentation level progression
+    IF level > (last_level + 1)
+        Exception(num_line, "INDENTATION_LEVEL_NOT_VALID", "Level of indent incorrect: " + level)
+    END IF
+
+    # General case: return line without consumed indentation
+    content = line.substring(pointer).trim()
+    RETURN LineIndent(level, content)
+
+END FUNCTION
