@@ -1,0 +1,71 @@
+CLASS Node
+
+	# Basic fields
+    FIELD line: INTEGER
+    FIELD level: INTEGER
+    FIELD name: STRING
+    FIELD namespace: STRING
+    FIELD block_text: BOOLEAN
+    
+    # Derived fields
+    FIELD normalized_name: STRING
+    FIELD qualified_name: STRING
+
+	# Childs and vlues
+    FIELD value: STRING
+    FIELD text_lines: LIST<STRING> = []
+    FIELD children: LIST<Node> = []
+    
+    # Optional Frozen flag
+    FIELD is_frozen: BOOLEAN = false
+
+    CONSTRUCTOR Node(line, level, name, namespace, block_text, value)
+        level = level
+        line = line
+
+        name 			= compactSpaces(name)
+        normalized_name	= normalize(name)
+        namespace 		= lowerCase(namespace)
+        
+        IF namespace.isEmpty() == true
+            qualified_name = normalized_name
+        ELSE
+            qualified_name = namespace + ":" + normalized_name
+        END IF        
+
+        IF value == null
+            this.value = ""
+        ELSE
+            this.value = value.trim()
+        END IF
+
+        this.block_text = block_text
+
+        validateNamespaceFormat(namespace, line)
+
+        IF this.value.isEmpty() == false AND this.isTextNode() == true
+            ERROR(line, "Not empty value with textNode")
+        END IF
+
+        IF this.normalized_name.isEmpty() == true
+            ERROR(line, "Empty normalized name")
+        END IF
+    END CONSTRUCTOR
+
+
+    PROCEDURE freeze()
+        IF is_frozen
+            RETURN
+        END IF
+
+        FOREACH n IN children
+            n.freeze()
+        END FOREACH
+
+        children = freeze(children)
+        text_lines = freeze(text_lines)
+
+        is_frozen = true
+    END PROCEDURE
+
+END CLASS

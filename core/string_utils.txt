@@ -1,0 +1,11 @@
+FUNCTION compactSpaces(string)
+
+END FUNCTION
+
+FUNCTION normalize(string)
+
+END FUNCTION
+
+FUNCTION lowerCase(string)
+
+END FUNCTION
