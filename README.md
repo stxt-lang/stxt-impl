@@ -31,6 +31,7 @@ CLASS
 END
 NULL
 CONSTRUCTOR
+IS
 ```
 
 Para mejorar la legibilidad, se recomienda usar finales explícitos:
@@ -86,7 +87,8 @@ Se definen los siguientes tipos básicos
 * FLOAT: Números con coma flotante
 * STRING: Cadenas de caracteres
 * BOOLEAN: Boolean (true/false)
-* CHAR
+* CHAR: Un caracter
+* REGEX: Expresiones regulares, alta dependencia del lenguaje
 
 ### 4.2 STRING
 

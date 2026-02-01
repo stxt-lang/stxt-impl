@@ -1,0 +1,13 @@
+FIELD NAMESPACE_FORMAT: REGEX = "^@?[a-z0-9]+(\\.[a-z0-9]+)+$"
+
+PROCEDURE validateNamespaceFormat(namespace: STRING, line_number: INTEGER)
+
+    IF namespace IS NULL OR namespace.isEmpty()
+        RETURN
+    END IF
+
+    IF NOT NAMESPACE_FORMAT.matches(namespace)
+        Exception(line_number, "INVALID_NAMESPACE","Namespace not valid: " + namespace)
+    END IF
+
+END PROCEDURE
