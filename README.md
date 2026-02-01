@@ -1,25 +1,14 @@
-# Pseudocode Style Guide
+# Guía de estilo del Pseudocódigo
 
 ## 1. Propósito
 
-Este pseudolenguaje se utiliza para **describir lógica, flujo de control y responsabilidades** de un sistema de forma clara y consistente, sin depender de la sintaxis ni de las restricciones de ningún lenguaje de programación específico.
-
-El objetivo es que el pseudocódigo:
-
-* Sea fácil de leer por perfiles técnicos.
-* Sea sencillo de traducir a distintos lenguajes.
-* Priorice claridad y coherencia frente a exactitud sintáctica.
+Este pseudolenguaje se utiliza para **describir lógica, flujo de control y responsabilidades** 
+de un sistema de forma clara y consistente, sin depender de la sintaxis 
+ni de las restricciones de ningún lenguaje de programación específico.
 
 ---
 
-## 2. Idioma
-
-* **Keywords, identificadores y comentarios**: en inglés.
-* **Descripción y explicación del estándar**: en castellano.
-
----
-
-## 3. Keywords
+## 2. Keywords
 
 Las keywords representan control de flujo, definición de estructuras y operaciones fundamentales.
 
@@ -36,9 +25,10 @@ ELSE
 WHILE
 FOR
 RETURN
-CLASS
 FUNCTION
 PROCEDURE
+CLASS
+STRUCTURE
 END
 ```
 
@@ -49,11 +39,11 @@ END IF
 END FUNCTION
 END PROCEDURE
 END CLASS
+END STRUCTURE
 ```
-
 ---
 
-## 4. Variables
+## 3. Variables
 
 Las variables representan estado o datos temporales.
 
@@ -71,6 +61,30 @@ total_price
 is_active
 retry_count
 ```
+
+---
+
+## 4. Tipado de las variables
+
+Las variables pueden mostrar el tipo para mejorar la claridad. Se usará lo siguiente:
+
+nombre_variable: TIPO
+
+**Ejemplo de definición**
+
+```text
+nombre_variable: STRING = "Hola"
+
+```
+
+### 4.1 Tipos comunes
+
+Se definen los siguientes tipos básicos
+
+* INTEGER: Números enteros
+* FLOAT: Números con coma flotante
+* STRING: Cadenas de caracteres
+* BOOLEAN: Boolean (true/false)
 
 ---
 
@@ -230,9 +244,9 @@ Los comentarios se utilizan para explicar intención o contexto, no para describ
 ```text
 CLASS Order
 
-    VARIABLE id
-    VARIABLE total_price
-    VARIABLE is_paid
+    FIELD id
+    FIELD total_price
+    FIELD is_paid
 
     PROCEDURE markAsPaid()
         is_paid = true
