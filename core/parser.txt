@@ -1,0 +1,139 @@
+FUNCTION parse(content: STRING): Node[]
+    content = removeUTF8BOM(content)
+
+    stack: Node[] = []
+    documents: Node[] = []
+    line_number: INTEGER = 0
+
+	# Iterate lines
+    FOREACH line IN content
+		line_number = line_number + 1
+        processLine(line, line_number, stack, documents)
+	END FOREACH
+
+    # Close all pending nodes
+    closeToLevel(stack, documents, 0)
+
+    RETURN documents
+END FUNCTION
+
+PROCEDURE processLine(line, line_number, stack, documents)
+
+    last_node = NULL
+    IF stack.isEmpty() == false
+        last_node = stack.last()
+    END IF
+
+    last_level: INTEGER = 0
+    IF last_node IS NOT NULL
+        last_level = last_node.getLevel()
+    END IF
+
+    last_node_block = last_node IS NOT NULL AND last_node.isTextNode()
+
+    # Parse line indentation / comment / empty line
+    line_indent = parseLine(line, last_node_block, last_level, line_number)
+
+    IF line_indent IS NULL
+        RETURN
+    END IF
+
+    current_level = line_indent.indent_level
+
+    # If we are inside a text node and indentation indicates it is still text,
+    # append text line and do not create a new node.
+    IF last_node_block AND current_level > last_level
+        last_node.text_lines.push(line_indent.line_without_indent)
+        RETURN
+    END IF
+
+    # Close nodes up to current level (finalizes nodes and attaches them)
+    closeToLevel(stack, documents, current_level)
+
+    # Create new node and keep it open in the stack (not attached yet)
+    parent: Node = NULL
+    IF NOT stack.isEmpty()
+        parent = stack.last()
+    END IF
+
+    node: Node = createNode(line_indent, line_number, current_level, parent)
+
+    stack.push(node)
+END PROCEDURE
+
+PROCEDURE closeToLevel(stack: DEQUE<Node>, documents: LIST<Node>, target_level: INTEGER)
+
+    WHILE stack.size() > target_level
+
+        completed: Node = stack.pop()
+        completed.freeze()
+
+        IF stack.isEmpty()
+            documents.add(completed)
+        ELSE
+            stack.last().children.push(completed)
+        END IF
+
+    END WHILE
+
+END PROCEDURE
+
+FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER, level: INTEGER, parent: Node): Node
+
+    line: STRING = line_indent.line_without_indent
+
+    name = NULL
+    value = NULL
+    is_text_node = false
+
+    node_index: INTEGER = line.indexOf(':')
+    text_index: INTEGER = line.indexOf(">>")
+
+    IF node_index == -1 AND text_index == -1
+        THROW ParseException(line_number, "INVALID_LINE", "Line not valid: " + line)
+
+    ELSE IF node_index == -1 AND text_index != -1
+        is_text_node = true
+
+    ELSE IF node_index != -1 AND text_index == -1
+        is_text_node = false
+
+    ELSE IF node_index < text_index
+        is_text_node = false
+
+    ELSE IF node_index >= text_index
+        THROW ParseException(line_number, "INVALID_LINE", "Line not valid: " + line)
+    END IF
+
+    IF is_text_node
+        name = line.substring(0, text_index)
+        value = line.substring(text_index + 2)
+    ELSE
+        name = line.substring(0, node_index)
+        value = line.substring(node_index + 1)
+    END IF
+
+    IF is_text_node AND value.trim().isEmpty() == false
+        Exception(line_number, "INLINE_VALUE_NOT_VALID", "Line not valid: " + line)
+    END IF
+
+
+    # Default namespace: inherited from parent
+    parent_namespace: STRING = null
+    IF parent != null
+        parent_namespace = parent.getNamespace()
+    END IF
+
+    nn: NameNamespace = NameNamespaceParser.parse(name, parent_namespace, line_number, line)
+
+    name = nn.getName()
+    namespace: STRING = nn.getNamespace()
+
+    # Validate name
+    IF name.isEmpty()
+        Exception(line_number, "INVALID_LINE", "Line not valid: " + line)
+    END IF
+
+    RETURN Node(line_number, level, name, namespace, is_text_node, value)
+
+END FUNCTION

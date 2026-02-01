@@ -1,0 +1,58 @@
+CLASS NameNamespace
+    FIELD name: STRING
+    FIELD namespace: STRING
+
+    CONSTRUCTOR (name, namespace)
+        name = name
+        namespace = namespace
+    END CONSTRUCTOR
+END CLASS
+
+# Token for a single name segment (letters, marks, numbers, underscore, hyphen)
+NAME_TOKEN: REGEX = "[\\p{L}\\p{M}\\p{N}_-]+"
+
+# Full name: one or more tokens separated by spaces
+NAME_PART: REGEX = NAME_TOKEN + "(?:\\s+" + NAME_TOKEN + ")*"
+
+# Namespace segment: lowercase alphanumeric
+NS_SEGMENT: REGEX = "[a-z0-9]+"
+
+# Full namespace: optional '@', dot-separated segments
+NAMESPACE: REGEX = "@?" + NS_SEGMENT + "(?:\\." + NS_SEGMENT + ")*"
+
+# Line pattern with optional explicit namespace in parentheses
+LINE_PATTERN: REGEX = "^\\s*(?<name>" + NAME_PART + ")(?:\\s*\\(\\s*(?<ns>" + NAMESPACE + ")\\s*\\))?\\s*$"
+
+FUNCTION parse(raw_name: STRING, inherited_namespace: STRING, line_number: INTEGER, full_line: STRING): NameNamespace
+
+    IF raw_name == null
+        Exception(line_number, "INVALID_LINE","Line not valid: " + full_line)
+    END IF
+
+    IF NOT LINE_PATTERN.matches(raw_name) == false
+        Exception(line_number, "INVALID_NAMESPACE_DEF", "Line not valid: " + full_line)
+    END IF
+
+    name: STRING = matcher.group("name")
+
+    IF name IS NULL OR name.isBlank()
+        Exception(line_number, "INVALID_LINE", "Line not valid: " + full_line)
+    END IF
+
+    # Default namespace: inherited or empty
+    IF inherited_namespace IS NOT NULL
+        namespace = inherited_namespace
+    ELSE
+        namespace = EMPTY_NAMESPACE
+    END IF
+
+    explicit_namespace: STRING = matcher.group("ns")
+
+    IF explicit_namespace IS NOT NULL AND NOT explicit_namespace.isBlank()
+        namespace = lowerCase(explicit_namespace)
+    END IF
+
+    RETURN NameNamespace(name, namespace)
+
+END FUNCTION
+

@@ -97,6 +97,8 @@ Se supone que STRING tiene al menos los siguientes métodos comunes:
 * length()
 * charAt(pos)
 * trim()
+* substring(ini_included,end_excluded)
+* indexOf(str)
 
 En caso de no existir, se debería implementar.
 
@@ -113,6 +115,8 @@ Suponemos que array también tiene los siguentes métodos:
 
 * length()
 * push(valor)
+* pop(): Recupera y elimina el último valor
+* last(): Recupera el último valor
 * Se recupera un valor con nombre_variable[posicion]
 
 ---
