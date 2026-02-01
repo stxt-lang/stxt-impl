@@ -23,7 +23,7 @@ Las keywords representan control de flujo, definición de estructuras y operacio
 IF
 ELSE
 WHILE
-FOR
+FOREACH line IN text
 RETURN
 FUNCTION
 PROCEDURE
