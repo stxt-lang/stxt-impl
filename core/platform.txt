@@ -1,0 +1,4 @@
+# Platform
+FUNCTION freezeArray(array)
+
+END FUNCTION

@@ -1,15 +1,18 @@
-FUNCTION compactSpaces(string)
-
+FUNCTION compactSpaces (str)
 END FUNCTION
 
-FUNCTION normalize(string)
-
+FUNCTION normalize (str)
 END FUNCTION
 
-FUNCTION lowerCase(string)
-
+FUNCTION lowerCase (str)
 END FUNCTION
 
-trimToNotNull
+FUNCTION trimToNotNull(str)
+END FUNCTION
 
-rightTrim
+FUNCTION rightTrim (str)
+END FUNCTION
+
+FUNCTION isEmpty(str)
+END FUNCTION
+

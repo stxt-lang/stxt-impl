@@ -1,8 +1,8 @@
-COMMENT_CHAR 		= '#'
+COMMENT_CHAR 		= "#"
 TAB_SPACES 			= 4
-TAB 				= '\t'
-SPACE 				= ' '
-SEP_NODE			= ':'
+TAB 				= "\t"
+SPACE 				= " "
+SEP_NODE			= ":"
 DEFAULT_ENCODING	= "UTF-8"
 EMPTY_NAMESPACE		= ""
 

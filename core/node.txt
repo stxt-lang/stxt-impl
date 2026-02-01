@@ -29,7 +29,7 @@ CLASS Node
 
         normalized_name	= normalize(name)
         
-        IF namespace.isEmpty()
+        IF isEmpty(namespace)
             qualified_name = normalized_name
         ELSE
             qualified_name = namespace + ":" + normalized_name
@@ -40,16 +40,16 @@ CLASS Node
 			ERROR(line, "Not empty value with Block Text")
 		END IF
 
-        IF NOT value.isEmpty() AND block_text
+        IF NOT isEmpty(value) AND block_text
             ERROR(line, "Not empty value with Block Text")
         END IF
 
-        IF normalized_name.isEmpty()
+        IF isEmpty(normalized_name)
             ERROR(line, "Empty normalized name")
         END IF
     END CONSTRUCTOR
 
-	# Optional method
+	# Optional method, platform dependent
     PROCEDURE freeze()
         IF is_frozen
             RETURN
@@ -59,8 +59,8 @@ CLASS Node
             node.freeze()
         END FOREACH
 
-        children 	= freeze(children)
-        text_lines	= freeze(text_lines)
+        children 	= freezeArray(children)
+        text_lines	= freezeArray(text_lines)
 
         is_frozen = true
     END PROCEDURE
