@@ -3,7 +3,7 @@ CLASS Node
 	# Basic fields
     FIELD line: INTEGER
     FIELD level: INTEGER
-    FIELD name: STRING
+    FIELD name: STRING		
     FIELD namespace: STRING
     FIELD block_text: BOOLEAN
     
@@ -13,57 +13,54 @@ CLASS Node
 
 	# Childs and vlues
     FIELD value: STRING
-    FIELD text_lines: LIST<STRING> = []
-    FIELD children: LIST<Node> = []
+    FIELD text_lines: STRING[]
+    FIELD children: Node[]
     
     # Optional Frozen flag
     FIELD is_frozen: BOOLEAN = false
 
-    CONSTRUCTOR Node(line, level, name, namespace, block_text, value)
-        level = level
-        line = line
+    CONSTRUCTOR (line, level, name, namespace, block_text, value)
+        line 		= line
+        level 		= level
+        name 		= compactSpaces(name)
+        namespace 	= lowerCase(namespace)
+        block_text	= block_text
+		value 		= trimToNotNull(value)
 
-        name 			= compactSpaces(name)
         normalized_name	= normalize(name)
-        namespace 		= lowerCase(namespace)
         
-        IF namespace.isEmpty() == true
+        IF namespace.isEmpty()
             qualified_name = normalized_name
         ELSE
             qualified_name = namespace + ":" + normalized_name
-        END IF        
-
-        IF value == null
-            this.value = ""
-        ELSE
-            this.value = value.trim()
         END IF
 
-        this.block_text = block_text
+		# Basic checks
+		IF NOT validNamespaceFormat(namespace)
+			ERROR(line, "Not empty value with Block Text")
+		END IF
 
-        validateNamespaceFormat(namespace, line)
-
-        IF this.value.isEmpty() == false AND this.isTextNode() == true
-            ERROR(line, "Not empty value with textNode")
+        IF NOT value.isEmpty() AND block_text
+            ERROR(line, "Not empty value with Block Text")
         END IF
 
-        IF this.normalized_name.isEmpty() == true
+        IF normalized_name.isEmpty()
             ERROR(line, "Empty normalized name")
         END IF
     END CONSTRUCTOR
 
-
+	# Optional method
     PROCEDURE freeze()
         IF is_frozen
             RETURN
         END IF
 
-        FOREACH n IN children
-            n.freeze()
+        FOREACH node IN children
+            node.freeze()
         END FOREACH
 
-        children = freeze(children)
-        text_lines = freeze(text_lines)
+        children 	= freeze(children)
+        text_lines	= freeze(text_lines)
 
         is_frozen = true
     END PROCEDURE

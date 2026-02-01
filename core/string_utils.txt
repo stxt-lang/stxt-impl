@@ -9,3 +9,5 @@ END FUNCTION
 FUNCTION lowerCase(string)
 
 END FUNCTION
+
+trimToNotNull
