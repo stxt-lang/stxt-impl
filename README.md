@@ -21,9 +21,12 @@ Las keywords representan control de flujo, definición de estructuras y operacio
 
 ```text
 IF
+ELSE IF
 ELSE
 WHILE
 FOREACH line IN text
+BREAK
+CONTINUE
 RETURN
 FUNCTION
 PROCEDURE
@@ -87,7 +90,6 @@ Se definen los siguientes tipos básicos
 * FLOAT: Números con coma flotante
 * STRING: Cadenas de caracteres
 * BOOLEAN: Boolean (true/false)
-* CHAR: Un caracter
 * REGEX: Expresiones regulares, alta dependencia del lenguaje
 
 ### 4.2 STRING
@@ -118,6 +120,26 @@ Suponemos que array también tiene los siguentes métodos:
 * pop(): Recupera y elimina el último valor
 * last(): Recupera el último valor
 * Se recupera un valor con nombre_variable[posicion]
+
+### 4.4 Maps (diccionarios)
+
+Estructura clave-valor (equivale a `HashMap` en Java, `Map`/objeto en JavaScript y `dict` en Python).
+
+```text
+prices: MAP<STRING, FLOAT> = {}
+prices["coffee"] = 1.50
+config: MAP = { "host": "localhost", "port": 8080 }
+```
+
+Suponemos que un map tiene los siguientes métodos:
+
+* put(clave, valor): Inserta o actualiza
+* get(clave): Recupera el valor de una clave
+* containsKey(clave): Devuelve true si la clave existe
+* remove(clave): Elimina una entrada
+* keys(): Devuelve las claves
+* size(): Número de entradas
+* Se recupera/asigna un valor con nombre_variable[clave]
 
 ---
 
@@ -187,7 +209,27 @@ retry_count = retry_count + 1
 
 ---
 
-## 8. Operadores de comparación
+## 8. Operadores aritméticos
+
+Se utilizan los operadores aritméticos comunes a todos los lenguajes.
+
+```text
++   -   *   /   %
+```
+
+* `%` es el módulo (resto de la división entera)
+
+**Ejemplos:**
+
+```text
+total_price = unit_price * quantity
+retry_count = retry_count + 1
+is_even = (n % 2) == 0
+```
+
+---
+
+## 9. Operadores de comparación
 
 Se utilizan operadores comunes y reconocibles, evitando símbolos no estándar.
 
@@ -205,7 +247,7 @@ IF age >= 18
 
 ---
 
-## 9. Operadores booleanos
+## 10. Operadores booleanos
 
 Las operaciones lógicas se expresan de forma explícita y legible.
 
@@ -228,7 +270,7 @@ IF is_active == true AND NOT is_blocked
 
 ---
 
-## 10. Booleanos
+## 11. Booleanos
 
 Los valores booleanos se expresan de forma simple.
 
@@ -239,7 +281,28 @@ false
 
 ---
 
-## 11. Bloques e indentación
+## 12. Nulos (NULL) y el operador IS
+
+`NULL` representa la **ausencia de valor** (equivale a `null` en Java/JavaScript y a `None` en Python).
+
+Para comprobar si un valor es o no `NULL` se usa el operador `IS` / `IS NOT`, más legible que `==`:
+
+```text
+IF user IS NULL
+    RETURN
+END IF
+
+IF result IS NOT NULL
+    process(result)
+END IF
+```
+
+* `IS` / `IS NOT` se usan únicamente para comparar con `NULL`.
+* Para el resto de comparaciones se utilizan los operadores de §9.
+
+---
+
+## 13. Bloques e indentación
 
 * La indentación es obligatoria y significativa para la lectura.
 * No se utilizan llaves `{}` ni caracteres especiales.
@@ -248,14 +311,41 @@ false
 **Ejemplo:**
 
 ```text
-IF condition
-    DO something
+IF age >= 65
+    applyDiscount("senior")
+ELSE IF age >= 18
+    applyDiscount("standard")
+ELSE
+    applyDiscount("minor")
 END IF
 ```
 
 ---
 
-## 12. Comentarios
+## 14. Control de bucles
+
+Dentro de un bucle (`WHILE`, `FOREACH`) se puede alterar el flujo:
+
+* `BREAK`: termina el bucle inmediatamente
+* `CONTINUE`: salta a la siguiente iteración
+
+**Ejemplo:**
+
+```text
+FOREACH item IN items
+    IF item.is_invalid == true
+        CONTINUE
+    END IF
+    IF item.is_last == true
+        BREAK
+    END IF
+    process(item)
+END FOREACH
+```
+
+---
+
+## 15. Comentarios
 
 Los comentarios se utilizan para explicar intención o contexto, no para describir lo obvio.
 
@@ -272,7 +362,7 @@ Los comentarios se utilizan para explicar intención o contexto, no para describ
 
 ---
 
-## 13. Ejemplo completo
+## 16. Ejemplo completo
 
 ```text
 CLASS Order
@@ -311,7 +401,7 @@ END FUNCTION
 
 ---
 
-## 14. Principios clave
+## 17. Principios clave
 
 * Consistencia antes que exhaustividad.
 * Claridad antes que brevedad.
