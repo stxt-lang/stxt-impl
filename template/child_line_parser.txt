@@ -1,0 +1,112 @@
+# ChildLineParser: parsea el RuleSpec opcional de una línea de "Structure >>".
+# El RuleSpec es la parte que va DESPUÉS del ":" en una línea de plantilla, es decir,
+# lo que el parser core devuelve como valor inline del nodo. Su forma lógica es:
+#
+#     [ "(" cardinalidad ")" ]  [ tipo | "@Referencia" ]  [ "[" valores ENUM "]" ]
+#
+# Esta función NO conoce el nombre ni el namespace del nodo (eso lo resuelve el parser
+# core a partir del propio nodo); sólo interpreta cardinalidad, tipo y valores.
+
+# Patrón con tres grupos opcionales: count, type, values.
+CHILD_LINE_PATTERN: REGEX =
+    "^\\s*" +
+    "(?:\\(\\s*(?<count>[^()\\s][^)]*?)\\s*\\)\\s*)?" +    # (cardinalidad)
+    "(?<type>[^\\[\\]()]*)?" +                              # tipo o @referencia
+    "(?:\\[\\s*(?<values>[^]]*?)\\s*\\]\\s*)?" +            # [valores ENUM]
+    "\\s*$"
+
+FUNCTION parse(raw_line: STRING, line_number: INTEGER): ChildLine
+
+    # Línea sin RuleSpec: todo por defecto
+    IF raw_line.trim().isEmpty()
+        RETURN ChildLine(NULL, NULL, NULL, NULL)
+    END IF
+
+    matcher = CHILD_LINE_PATTERN.matcher(raw_line)
+    IF NOT matcher.matches()
+        THROW ParseException(line_number, "INVALID_CHILD_LINE", "Line not valid: " + raw_line)
+    END IF
+
+    # --- Tipo (o referencia @Nombre) ---
+    type: STRING = matcher.group("type")
+    IF type IS NOT NULL
+        type = type.trim()
+    END IF
+    IF type IS NULL OR type.isEmpty()
+        type = NULL
+    END IF
+
+    # --- Cardinalidad ---
+    count: STRING = matcher.group("count")
+    min: INTEGER = NULL
+    max: INTEGER = NULL
+
+    IF count IS NULL OR count.isEmpty() OR count == "*"
+        # (*) o ausente: sin límites
+        min = NULL
+        max = NULL
+
+    ELSE IF count == "?"
+        # cero o una
+        min = NULL
+        max = 1
+
+    ELSE IF count == "+"
+        # una o más
+        min = 1
+        max = NULL
+
+    ELSE IF endsWith(count, "+")
+        # num+ : num o más
+        expected_num: INTEGER = parseInteger(count.substring(0, count.length() - 1))
+        min = expected_num
+        max = NULL
+
+    ELSE IF endsWith(count, "-")
+        # num- : hasta num
+        expected_num: INTEGER = parseInteger(count.substring(0, count.length() - 1))
+        min = NULL
+        max = expected_num
+
+    ELSE IF count.indexOf(",") != -1
+        # min,max
+        IF NOT isValidMinMax(count)
+            THROW ParseException(line_number, "INVALID_CHILD_COUNT", "Invalid count " + count + " in line: " + raw_line)
+        END IF
+        parts: STRING[] = split(count, ",")
+        min = parseInteger(parts[0].trim())
+        max = parseInteger(parts[1].trim())
+
+    ELSE
+        # num exacto : min = max = num
+        IF NOT isInteger(count)
+            THROW ParseException(line_number, "INVALID_CHILD_COUNT", "Invalid count " + count + " in line: " + raw_line)
+        END IF
+        expected_num: INTEGER = parseInteger(count)
+        min = expected_num
+        max = expected_num
+    END IF
+
+    # --- Valores ENUM ---
+    values: STRING[] = NULL
+    values_str: STRING = matcher.group("values")
+    IF values_str IS NOT NULL
+        parts: STRING[] = split(values_str, ",")
+        list: STRING[] = []
+        FOREACH part IN parts
+            part = part.trim()
+            IF NOT part.isEmpty()
+                # Los valores ENUM no pueden repetirse tras el trim
+                IF list.contains(part)
+                    THROW ParseException(line_number, "VALUE_DUPLICATED", "The values " + part + " is duplicated")
+                END IF
+                list.push(part)
+            END IF
+        END FOREACH
+        IF list.size() > 0
+            values = list
+        END IF
+    END IF
+
+    RETURN ChildLine(type, min, max, values)
+END FUNCTION

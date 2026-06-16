@@ -1,0 +1,310 @@
+# Tipos de schema: cada tipo sabe validar la forma del valor de un nodo y, opcionalmente,
+# su contenido. Se identifican por su nombre (INLINE, GROUP, BLOCK, TEXT, NUMBER, ...).
+#
+# Modelo de dos propiedades (STXT-SCHEMA-SPEC §9.1):
+#   * Forma del valor: INLINE, BLOCK, INLINE/BLOCK o NONE.
+#   * Admite hijos: sólo INLINE y GROUP admiten hijos; el resto son hojas.
+#
+# Nota de implementación: la mayoría de tipos hoja sólo validan el valor; la prohibición
+# de hijos sobre tipos hoja la comprueba TEXT (y se apoya en la validación recursiva).
+
+# -------------------------------------------------------------------
+# Interfaz común
+# -------------------------------------------------------------------
+INTERFACE Type
+    # Valida el nodo n contra su definición. Lanza ValidationException si no cumple.
+    PROCEDURE validate(ns_node: NodeDefinition, node: Node)
+
+    # Nombre del tipo, tal como se escribe en "Type:"
+    FUNCTION getName(): STRING
+END INTERFACE
+
+# -------------------------------------------------------------------
+# Registro de tipos soportados
+# -------------------------------------------------------------------
+CLASS TypeRegistry
+
+    FIELD registry: MAP<STRING, Type> = {}      # inicializado una sola vez (estático)
+
+    # Inicialización estática: registra todos los tipos soportados.
+    PROCEDURE init()
+        # Tipos estructurales principales
+        register(INLINE)
+        register(BLOCK)
+
+        # Subtipos / tipos hoja
+        register(TEXT)
+        register(BOOLEAN)
+        register(URL)
+        register(INTEGER_TYPE)      # tipo "INTEGER" (clase renombrada para no chocar con el tipo básico INTEGER)
+        register(NATURAL)
+        register(NUMBER)
+        register(DATE)
+        register(TIMESTAMP)
+        register(EMAIL)
+        register(HEXADECIMAL)
+        register(BASE64)
+        register(GROUP)
+        register(ENUM)
+
+        # Nota: TIME, UUID y BINARY se mencionan en la especificación pero esta
+        # implementación no los registra; usarlos provoca TYPE_NOT_SUPPORTED.
+    END PROCEDURE
+
+    FUNCTION get(node_type: STRING): Type
+        RETURN registry[node_type]
+    END FUNCTION
+
+    PROCEDURE register(instance: Type)
+        IF registry.containsKey(instance.getName())
+            THROW STXTException("DUPLICATED_TYPE", "Type already defined: " + instance.getName())
+        END IF
+        registry.put(instance.getName(), instance)
+    END PROCEDURE
+
+END CLASS
+
+# -------------------------------------------------------------------
+# Tipos estructurales
+# -------------------------------------------------------------------
+
+# INLINE: valor inline opcional, sin bloque de texto. Admite hijos. Tipo por defecto.
+CLASS INLINE IMPLEMENTS Type
+    FUNCTION getName(): STRING
+        RETURN "INLINE"
+    END FUNCTION
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        IF n.getTextLines().size() > 0
+            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+        END IF
+    END PROCEDURE
+END CLASS
+
+# GROUP: sólo estructura (hijos). No admite valor inline ni bloque de texto.
+CLASS GROUP IMPLEMENTS Type
+    FUNCTION getName(): STRING
+        RETURN "GROUP"
+    END FUNCTION
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        IF NOT isEmpty(n.getValue()) OR n.getTextLines().size() > 0
+            THROW ValidationException(n.getLine(), "INVALID_VALUE", "Node '" + n.getName() + "' has to be empty")
+        END IF
+    END PROCEDURE
+END CLASS
+
+# BLOCK: sólo bloque de texto >>. No admite valor inline.
+CLASS BLOCK IMPLEMENTS Type
+    FUNCTION getName(): STRING
+        RETURN "BLOCK"
+    END FUNCTION
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        IF NOT isEmpty(n.getValue())
+            THROW ValidationException(n.getLine(), "NOT_ALLOWED_VALUE", "Not allowed inline text in node " + n.getQualifiedName())
+        END IF
+    END PROCEDURE
+END CLASS
+
+# TEXT: texto genérico, inline o bloque. No admite hijos.
+CLASS TEXT IMPLEMENTS Type
+    FUNCTION getName(): STRING
+        RETURN "TEXT"
+    END FUNCTION
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        IF n.getChildren().size() > 0
+            THROW ValidationException(n.getLine(), "NOT_ALLOWED_CHILDREN_TEXT", "Not allowed children nodes in node " + n.getQualifiedName())
+        END IF
+    END PROCEDURE
+END CLASS
+
+# ENUM: el valor inline DEBE coincidir exactamente (case-sensitive) con un valor permitido.
+CLASS ENUM IMPLEMENTS Type
+    FUNCTION getName(): STRING
+        RETURN "ENUM"
+    END FUNCTION
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        IF n.getTextLines().size() > 0
+            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+        END IF
+
+        IF NOT ns_node.getValues().contains(n.getValue())
+            THROW ValidationException(n.getLine(), "INVALID_VALUE",
+                "The value '" + n.getValue() + "' not allowed. Only: " + ns_node.getValues())
+        END IF
+    END PROCEDURE
+END CLASS
+
+# -------------------------------------------------------------------
+# Tipos de contenido validados por expresión regular
+# -------------------------------------------------------------------
+
+# Clase base: valida n.getText() (valor inline o texto de bloque) contra un patrón.
+CLASS RegexValue IMPLEMENTS Type
+    FIELD pattern: REGEX
+    FIELD error: STRING
+
+    CONSTRUCTOR (pattern, error)
+        pattern = pattern
+        error   = error
+    END CONSTRUCTOR
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        value: STRING = n.getText()
+        IF NOT pattern.matches(value)
+            THROW ValidationException(n.getLine(), "INVALID_VALUE", n.getName() + ": " + error + " (" + value + ")")
+        END IF
+    END PROCEDURE
+END CLASS
+
+# BOOLEAN: true | false
+CLASS BOOLEAN EXTENDS RegexValue
+    FIELD P_BOOLEAN: REGEX = "^(true|false)$"
+    CONSTRUCTOR ()
+        super(P_BOOLEAN, "Invalid boolean")
+    END CONSTRUCTOR
+    FUNCTION getName(): STRING
+        RETURN "BOOLEAN"
+    END FUNCTION
+END CLASS
+
+# NUMBER: número con formato JSON (entero, decimal, notación exponencial)
+CLASS NUMBER EXTENDS RegexValue
+    FIELD P_NUMBER: REGEX = "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$"
+    CONSTRUCTOR ()
+        super(P_NUMBER, "Invalid number")
+    END CONSTRUCTOR
+    FUNCTION getName(): STRING
+        RETURN "NUMBER"
+    END FUNCTION
+END CLASS
+
+# INTEGER: entero con signo opcional
+CLASS INTEGER_TYPE EXTENDS RegexValue
+    FIELD P_INTEGER: REGEX = "^(\\-|\\+)?\\d+$"
+    CONSTRUCTOR ()
+        super(P_INTEGER, "Invalid integer")
+    END CONSTRUCTOR
+    FUNCTION getName(): STRING
+        RETURN "INTEGER"
+    END FUNCTION
+END CLASS
+
+# NATURAL: entero >= 0
+CLASS NATURAL EXTENDS RegexValue
+    FIELD P_NATURAL: REGEX = "^\\d+$"
+    CONSTRUCTOR ()
+        super(P_NATURAL, "Invalid natural")
+    END CONSTRUCTOR
+    FUNCTION getName(): STRING
+        RETURN "NATURAL"
+    END FUNCTION
+END CLASS
+
+# DATE: YYYY-MM-DD
+CLASS DATE EXTENDS RegexValue
+    FIELD P_DATE: REGEX = "^\\d{4}-\\d{2}-\\d{2}$"
+    CONSTRUCTOR ()
+        super(P_DATE, "Invalid date")
+    END CONSTRUCTOR
+    FUNCTION getName(): STRING
+        RETURN "DATE"
+    END FUNCTION
+END CLASS
+
+# TIMESTAMP: ISO 8601 (fecha + hora + zona opcional)
+CLASS TIMESTAMP EXTENDS RegexValue
+    FIELD P_TIMESTAMP: REGEX = "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{3})?)?(Z|[+-]\\d{2}:\\d{2})?$"
+    CONSTRUCTOR ()
+        super(P_TIMESTAMP, "Invalid timestamp")
+    END CONSTRUCTOR
+    FUNCTION getName(): STRING
+        RETURN "TIMESTAMP"
+    END FUNCTION
+END CLASS
+
+# EMAIL: dirección de correo válida
+CLASS EMAIL EXTENDS RegexValue
+    FIELD P_EMAIL: REGEX = "^(?=.{1,256})(?=.{1,64}@.{1,255}$)(?=.{1,64}@.{1,63}\\..{1,63}$)[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
+    CONSTRUCTOR ()
+        super(P_EMAIL, "Invalid email")
+    END CONSTRUCTOR
+    FUNCTION getName(): STRING
+        RETURN "EMAIL"
+    END FUNCTION
+END CLASS
+
+# -------------------------------------------------------------------
+# Tipos con validación específica (no por regex simple)
+# -------------------------------------------------------------------
+
+# URL: URI con esquema y host obligatorios
+CLASS URL IMPLEMENTS Type
+    FUNCTION getName(): STRING
+        RETURN "URL"
+    END FUNCTION
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        url: STRING = n.getValue()
+        uri = parseURI(url)
+        IF uri IS NULL OR uri.getScheme() IS NULL OR uri.getHost() IS NULL
+            THROW ValidationException(n.getLine(), "INVALID_VALUE", "Invalid URL: " + url)
+        END IF
+    END PROCEDURE
+END CLASS
+
+# HEXADECIMAL: cadena hex, ignora espacios, admite prefijo '#', longitud par
+CLASS HEXADECIMAL IMPLEMENTS Type
+    FUNCTION getName(): STRING
+        RETURN "HEXADECIMAL"
+    END FUNCTION
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        # Elimina espacios, tabs y saltos de línea
+        value: STRING = cleanSpaces(n.getText())
+
+        IF isEmpty(value)
+            THROW ValidationException(n.getLine(), "INVALID_VALUE", n.getName() + ": Invalid hexadecimal (empty)")
+        END IF
+
+        # Prefijo '#' opcional
+        IF value.charAt(0) == '#'
+            value = value.substring(1, value.length())
+        END IF
+
+        IF isEmpty(value)
+            THROW ValidationException(n.getLine(), "INVALID_VALUE", n.getName() + ": Invalid hexadecimal (only '#')")
+        END IF
+
+        # Longitud par (hexadecimal por bytes)
+        IF (value.length() % 2) != 0
+            THROW ValidationException(n.getLine(), "INVALID_VALUE", n.getName() + ": Invalid hexadecimal length (must be even)")
+        END IF
+
+        # Todos los caracteres deben ser hexadecimales
+        pointer: INTEGER = 0
+        WHILE pointer < value.length()
+            c: CHAR = value.charAt(pointer)
+            IF NOT isHexDigit(c)
+                THROW ValidationException(n.getLine(), "INVALID_VALUE", n.getName() + ": Invalid hexadecimal character '" + c + "'")
+            END IF
+            pointer = pointer + 1
+        END WHILE
+    END PROCEDURE
+END CLASS
+
+# BASE64: contenido Base64 decodificable (ignorando espacios)
+CLASS BASE64 IMPLEMENTS Type
+    FUNCTION getName(): STRING
+        RETURN "BASE64"
+    END FUNCTION
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        IF NOT isValidBase64(cleanSpaces(n.getText()))
+            THROW ValidationException(n.getLine(), "INVALID_VALUE", "Node '" + n.getName() + "' Invalid Base64")
+        END IF
+    END PROCEDURE
+END CLASS

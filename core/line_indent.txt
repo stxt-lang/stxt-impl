@@ -63,12 +63,12 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
 
     # Invalid indentation: spaces not multiple of TAB_SPACES
     IF spaces > 0
-        Exception(num_line, "INVALID_NUMBER_SPACES", "There are " + spaces + " spaces before node")
+        THROW ParseException(num_line, "INVALID_NUMBER_SPACES", "There are " + spaces + " spaces before node")
     END IF
 
     # Validate indentation level progression
     IF level > (last_level + 1)
-        Exception(num_line, "INDENTATION_LEVEL_NOT_VALID", "Level of indent incorrect: " + level)
+        THROW ParseException(num_line, "INDENTATION_LEVEL_NOT_VALID", "Level of indent incorrect: " + level)
     END IF
 
     # General case: return line without consumed indentation

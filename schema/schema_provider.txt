@@ -1,0 +1,147 @@
+# SchemaProvider: abstrae la obtención del Schema efectivo para un namespace.
+# Existen varias implementaciones que se componen entre sí:
+#   * SchemaProviderResources: carga y parsea un schema desde un recurso externo.
+#   * SchemaProviderMeta:      proporciona el meta-schema (@stxt.schema) embebido.
+#   * SchemaProviderCache:     cachea y consulta en cadena varios providers.
+
+# -------------------------------------------------------------------
+# Interfaz
+# -------------------------------------------------------------------
+INTERFACE SchemaProvider
+    # Devuelve el Schema asociado al namespace, o lanza/encadena si no existe.
+    FUNCTION getSchema(namespace: STRING): Schema
+END INTERFACE
+
+# -------------------------------------------------------------------
+# Cache + cadena de providers
+# -------------------------------------------------------------------
+CLASS SchemaProviderCache IMPLEMENTS SchemaProvider
+
+    FIELD cache: MAP<STRING, Schema> = {}
+    FIELD providers: SchemaProvider[]
+
+    CONSTRUCTOR (providers)
+        providers = providers
+    END CONSTRUCTOR
+
+    FUNCTION getSchema(namespace: STRING): Schema
+
+        IF namespace IS NULL OR isEmpty(namespace)
+            THROW SchemaException("NAMESPACE_REQUIRED", "Namespace is required to load schema")
+        END IF
+
+        namespace = lowerCase(namespace)
+
+        # Retorno desde cache si ya está cargado
+        cached: Schema = cache[namespace]
+        IF cached IS NOT NULL
+            RETURN cached
+        END IF
+
+        # Consultamos cada provider en orden; el primero que resuelva gana.
+        # Un ResourceNotFoundException en un provider no aborta: se prueba el siguiente.
+        result: Schema = NULL
+        FOREACH provider IN providers
+            result = tryGetSchema(provider, namespace)
+            IF result IS NOT NULL
+                BREAK
+            END IF
+        END FOREACH
+
+        IF result IS NULL
+            THROW SchemaException("NOT_FOUND_SCHEMA", "Not found schema " + namespace)
+        END IF
+
+        cache.put(namespace, result)
+        RETURN result
+    END FUNCTION
+
+    # Intenta resolver con un provider, tragando "recurso no encontrado".
+    FUNCTION tryGetSchema(provider: SchemaProvider, namespace: STRING): Schema
+        # Devuelve NULL si el provider no dispone del recurso (ResourceNotFoundException)
+        RETURN provider.getSchema(namespace)   # ResourceNotFoundException => NULL
+    END FUNCTION
+
+END CLASS
+
+# -------------------------------------------------------------------
+# Provider que carga schemas desde recursos externos
+# -------------------------------------------------------------------
+CLASS SchemaProviderResources IMPLEMENTS SchemaProvider
+
+    FIELD resources_loader: ResourcesLoader
+    FIELD schema_validator: SchemaValidator
+
+    CONSTRUCTOR (resources_loader)
+        resources_loader = resources_loader
+        # Los schemas cargados se validan contra el meta-schema (@stxt.schema)
+        schema_validator = SchemaValidator(SchemaProviderMeta())
+    END CONSTRUCTOR
+
+    FUNCTION getSchema(namespace: STRING): Schema
+
+        IF namespace IS NULL OR isEmpty(namespace)
+            THROW SchemaException("NAMESPACE_REQUIRED", "Namespace is required to load schema")
+        END IF
+
+        namespace = lowerCase(namespace)
+
+        # Recuperamos el texto del schema para el namespace objetivo
+        text_schema: STRING = resources_loader.retrieve(Schema.SCHEMA_NAMESPACE, namespace)
+
+        # Parseamos validando contra el meta-schema durante el parseo
+        parser: Parser = Parser()
+        parser.registerValidator(schema_validator)
+        nodes: Node[] = parser.parse(text_schema)
+
+        IF nodes.size() != 1
+            THROW SchemaException("INVALID_SCHEMA", "There are " + nodes.size() + ", and expected is 1")
+        END IF
+
+        # Convertimos el árbol en un Schema
+        root: Node    = nodes[0]
+        sch: Schema   = SchemaParser.transformNodeToSchema(root)
+
+        # El namespace declarado DEBE coincidir con el solicitado
+        IF NOT equalsIgnoreCase(sch.getNamespace(), namespace)
+            THROW SchemaException("INVALID_SCHEMA", "Schema namespace is " + sch.getNamespace() + ", and expected is " + namespace)
+        END IF
+
+        RETURN sch
+    END FUNCTION
+
+END CLASS
+
+# -------------------------------------------------------------------
+# Provider del meta-schema (@stxt.schema) embebido
+# -------------------------------------------------------------------
+CLASS SchemaProviderMeta IMPLEMENTS SchemaProvider
+
+    # Texto del meta-schema que valida cualquier documento del namespace @stxt.schema
+    CONSTANT META_TEXT: STRING = "Schema (@stxt.schema): @stxt.schema ... (ver STXT-SCHEMA-SPEC §15.2)"
+
+    FIELD meta: Schema
+
+    CONSTRUCTOR ()
+        parser: Parser = Parser()
+        nodes: Node[]  = parser.parse(META_TEXT)
+        IF nodes.size() != 1
+            THROW SchemaException("META_SCHEMA_INVALID", "Meta schema must produce exactly 1 document, got " + nodes.size())
+        END IF
+        meta = SchemaParser.transformNodeToSchema(nodes[0])
+    END CONSTRUCTOR
+
+    FUNCTION getSchema(namespace: STRING): Schema
+        # Sólo resuelve el propio namespace @stxt.schema
+        IF namespace != Schema.SCHEMA_NAMESPACE
+            THROW ResourceNotFoundException(Schema.SCHEMA_NAMESPACE, namespace)
+        END IF
+
+        IF meta IS NULL
+            THROW SchemaException("META_SCHEMA_NOT_AVAILABLE", "Meta schema not available")
+        END IF
+
+        RETURN meta
+    END FUNCTION
+
+END CLASS

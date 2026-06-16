@@ -1,4 +1,29 @@
-# Platform
-FUNCTION freezeArray(array)
+# Platform: utilidades dependientes del lenguaje/plataforma de implementación.
 
+# Devuelve una vista o copia inmutable del array (no se podrá modificar tras congelar).
+FUNCTION freezeArray(array)
+END FUNCTION
+
+# true si str representa un entero válido (admite signo). Equivale a poder hacer parseInteger.
+FUNCTION isInteger(str: STRING): BOOLEAN
+END FUNCTION
+
+# Convierte str en INTEGER. Sólo debe llamarse cuando isInteger(str) es true.
+FUNCTION parseInteger(str: STRING): INTEGER
+END FUNCTION
+
+# true si "min,max" son dos enteros válidos. Usado por el parser de cardinalidad de templates.
+FUNCTION isValidMinMax(str: STRING): BOOLEAN
+END FUNCTION
+
+# true si c es un dígito hexadecimal [0-9A-Fa-f].
+FUNCTION isHexDigit(c: CHAR): BOOLEAN
+END FUNCTION
+
+# Parsea una URI. Devuelve un objeto con getScheme()/getHost(), o NULL si no es válida.
+FUNCTION parseURI(str: STRING)
+END FUNCTION
+
+# true si str es contenido Base64 decodificable.
+FUNCTION isValidBase64(str: STRING): BOOLEAN
 END FUNCTION

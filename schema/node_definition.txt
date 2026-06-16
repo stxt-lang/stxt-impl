@@ -1,0 +1,73 @@
+# NodeDefinition: definición de un nodo dentro de un schema.
+# Equivale a una entrada "Node:" del documento schema.
+# Guarda el tipo, los hijos permitidos (ChildDefinition) y, si es ENUM, los valores.
+
+CLASS NodeDefinition
+
+    FIELD name: STRING
+    FIELD normalized_name: STRING
+    FIELD type: STRING
+
+    # Clave = nombre cualificado del hijo (namespace:nombre_canonico)
+    FIELD children: MAP<STRING, ChildDefinition> = {}
+
+    # Valores permitidos para tipo ENUM. Semántica de conjunto: sin duplicados.
+    FIELD values: STRING[] = []
+
+    CONSTRUCTOR (name, type, line)
+        name            = compactSpaces(name)
+        normalized_name = normalizeChars(name)
+        type            = type
+
+        IF isEmpty(normalized_name)
+            THROW ParseException(line, "INVALID_NODE_NAME", "Node name not valid: " + name)
+        END IF
+    END CONSTRUCTOR
+
+    FUNCTION getName(): STRING
+        RETURN name
+    END FUNCTION
+
+    FUNCTION getNormalizedName(): STRING
+        RETURN normalized_name
+    END FUNCTION
+
+    FUNCTION getType(): STRING
+        RETURN type
+    END FUNCTION
+
+    FUNCTION getChildren(): MAP<STRING, ChildDefinition>
+        RETURN children
+    END FUNCTION
+
+    PROCEDURE addChildDefinition(child_definition: ChildDefinition)
+        qname: STRING = child_definition.getQualifiedName()
+
+        # No puede haber dos Child equivalentes (mismo nombre canónico + namespace)
+        IF children.containsKey(qname)
+            THROW SchemaException("CHILD_DEF_ALREADY_DEFINED", "Exists a previous node definition with: " + qname)
+        END IF
+
+        children.put(qname, child_definition)
+    END PROCEDURE
+
+    # Inserta un valor permitido (ENUM). El conjunto ignora duplicados.
+    PROCEDURE addValue(value: STRING)
+        IF NOT values.contains(value)
+            values.push(value)
+        END IF
+    END PROCEDURE
+
+    # true si no hay valores definidos (sin restricción) o si value está permitido
+    FUNCTION isAllowedValue(value: STRING): BOOLEAN
+        IF values.size() == 0
+            RETURN true
+        END IF
+        RETURN values.contains(value)
+    END FUNCTION
+
+    FUNCTION getValues(): STRING[]
+        RETURN values
+    END FUNCTION
+
+END CLASS

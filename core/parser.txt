@@ -113,14 +113,14 @@ FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER, level: INTEGE
         value = line.substring(node_index + 1)
     END IF
 
-    IF is_text_node AND value.trim().isEmpty() == false
-        Exception(line_number, "INLINE_VALUE_NOT_VALID", "Line not valid: " + line)
+    IF is_text_node AND NOT value.trim().isEmpty()
+        THROW ParseException(line_number, "INLINE_VALUE_NOT_VALID", "Line not valid: " + line)
     END IF
 
 
     # Default namespace: inherited from parent
-    parent_namespace: STRING = null
-    IF parent != null
+    parent_namespace: STRING = NULL
+    IF parent IS NOT NULL
         parent_namespace = parent.getNamespace()
     END IF
 
@@ -131,7 +131,7 @@ FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER, level: INTEGE
 
     # Validate name
     IF name.isEmpty()
-        Exception(line_number, "INVALID_LINE", "Line not valid: " + line)
+        THROW ParseException(line_number, "INVALID_LINE", "Line not valid: " + line)
     END IF
 
     RETURN Node(line_number, level, name, namespace, is_text_node, value)

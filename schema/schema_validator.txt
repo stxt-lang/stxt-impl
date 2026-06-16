@@ -1,0 +1,111 @@
+# SchemaValidator: valida un nodo @STXT@ contra el schema de su namespace.
+# Implementa la interfaz Validator del parser core, de modo que puede engancharse al
+# parseo (validación débilmente acoplada) o ejecutarse después sobre el árbol.
+#
+# Resuelve el schema mediante un SchemaProvider y comprueba: existencia del nodo en el
+# schema, validez del valor según su tipo, y cardinalidades de los hijos declarados.
+
+CLASS SchemaValidator IMPLEMENTS Validator
+
+    FIELD schema_provider: SchemaProvider
+    FIELD recursive_validation: BOOLEAN = false
+
+    CONSTRUCTOR (schema_provider)
+        schema_provider = schema_provider
+    END CONSTRUCTOR
+
+    CONSTRUCTOR (schema_provider, recursive)
+        schema_provider     = schema_provider
+        recursive_validation = recursive
+    END CONSTRUCTOR
+
+    # Punto de entrada (Validator.validate). Valida el nodo y, opcionalmente, su subárbol.
+    PROCEDURE validate(node: Node)
+
+        namespace: STRING = node.getNamespace()
+        sch: Schema       = schema_provider.getSchema(namespace)
+
+        IF sch IS NULL
+            THROW ValidationException(node.getLine(), "SCHEMA_NOT_FOUND", "Not found schema: " + namespace)
+        END IF
+
+        validateAgainstSchema(node, sch)
+
+        # Validación recursiva opcional de los hijos
+        IF recursive_validation
+            FOREACH n IN node.getChildren()
+                validate(n)
+            END FOREACH
+        END IF
+    END PROCEDURE
+
+    # Valida un nodo contra un schema concreto.
+    PROCEDURE validateAgainstSchema(node: Node, sch: Schema)
+
+        schema_node: NodeDefinition = sch.getNodeDefinition(node.getNormalizedName())
+
+        # Modelo cerrado: el nodo DEBE estar definido en el schema de su namespace
+        IF schema_node IS NULL
+            THROW ValidationException(node.getLine(), "NODE_NOT_EXIST_IN_SCHEMA",
+                "NOT EXIST NODE " + node.getNormalizedName() + " for namespace " + sch.getNamespace())
+        END IF
+
+        validateValue(schema_node, node)
+        validateCount(schema_node, node)
+    END PROCEDURE
+
+    # Valida la forma/contenido del valor según el tipo declarado.
+    PROCEDURE validateValue(ns_node: NodeDefinition, n: Node)
+
+        node_type: STRING = ns_node.getType()
+
+        validator: Type = TypeRegistry.get(node_type)
+        IF validator IS NULL
+            THROW ValidationException(n.getLine(), "TYPE_NOT_SUPPORTED", "Node type not supported: " + node_type)
+        END IF
+
+        validator.validate(ns_node, n)
+    END PROCEDURE
+
+    # Cuenta los hijos directos por nombre cualificado y comprueba cardinalidades.
+    # La validación es independiente del orden: cuenta apariciones, no posiciones.
+    PROCEDURE validateCount(ns_node: NodeDefinition, node: Node)
+
+        count: MAP<STRING, INTEGER> = {}
+
+        FOREACH child IN node.getChildren()
+            child_name: STRING = child.getQualifiedName()
+            IF count.containsKey(child_name)
+                count[child_name] = count[child_name] + 1
+            ELSE
+                count[child_name] = 1
+            END IF
+        END FOREACH
+
+        # Para cada hijo declarado, comprobamos min/max contra el número observado
+        FOREACH ch_node IN ns_node.getChildren().values()
+            observed: INTEGER = 0
+            IF count.containsKey(ch_node.getQualifiedName())
+                observed = count[ch_node.getQualifiedName()]
+            END IF
+            validateCardinality(ch_node, observed, node)
+        END FOREACH
+    END PROCEDURE
+
+    PROCEDURE validateCardinality(ch_node: ChildDefinition, num: INTEGER, node: Node)
+
+        min: INTEGER = ch_node.getMin()
+        max: INTEGER = ch_node.getMax()
+
+        IF min IS NOT NULL AND num < min
+            THROW ValidationException(node.getLine(), "INVALID_NUMBER",
+                num + " nodes of '" + ch_node.getQualifiedName() + " and min is " + min)
+        END IF
+
+        IF max IS NOT NULL AND num > max
+            THROW ValidationException(node.getLine(), "INVALID_NUMBER",
+                num + " nodes of '" + ch_node.getQualifiedName() + " and max is " + max)
+        END IF
+    END PROCEDURE
+
+END CLASS

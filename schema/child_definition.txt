@@ -1,0 +1,57 @@
+# ChildDefinition: declaración de un hijo permitido dentro de un Node ("Child:").
+# Define el par lógico (nombre canónico + namespace efectivo) y la cardinalidad (min/max).
+# min y max son opcionales: NULL significa "sin límite establecido".
+
+CLASS ChildDefinition
+
+    FIELD name: STRING
+    FIELD normalized_name: STRING
+    FIELD namespace: STRING
+    FIELD min: INTEGER          # NULL = sin mínimo (efectivo 0)
+    FIELD max: INTEGER          # NULL = sin máximo (ilimitado)
+
+    CONSTRUCTOR (name, namespace, min, max, line)
+        name            = compactSpaces(name)
+        normalized_name = normalizeChars(name)
+        namespace       = lowerCase(namespace)
+        min             = min
+        max             = max
+
+        # El namespace del hijo (heredado o explícito) DEBE ser válido
+        validateNamespaceFormat(namespace, line)
+
+        IF isEmpty(normalized_name)
+            THROW ParseException(line, "INVALID_NODE_NAME", "Node name not valid: " + name)
+        END IF
+    END CONSTRUCTOR
+
+    FUNCTION getName(): STRING
+        RETURN name
+    END FUNCTION
+
+    FUNCTION getNormalizedName(): STRING
+        RETURN normalized_name
+    END FUNCTION
+
+    FUNCTION getNamespace(): STRING
+        RETURN namespace
+    END FUNCTION
+
+    FUNCTION getMin(): INTEGER
+        RETURN min
+    END FUNCTION
+
+    FUNCTION getMax(): INTEGER
+        RETURN max
+    END FUNCTION
+
+    # Identidad lógica del hijo: namespace:nombre_canonico, o sólo el nombre si no hay namespace
+    FUNCTION getQualifiedName(): STRING
+        IF isEmpty(namespace)
+            RETURN normalized_name
+        ELSE
+            RETURN namespace + ":" + normalized_name
+        END IF
+    END FUNCTION
+
+END CLASS

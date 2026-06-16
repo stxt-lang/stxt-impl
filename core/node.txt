@@ -3,19 +3,19 @@ CLASS Node
 	# Basic fields
     FIELD line: INTEGER
     FIELD level: INTEGER
-    FIELD name: STRING		
+    FIELD name: STRING
     FIELD namespace: STRING
     FIELD block_text: BOOLEAN
-    
+
     # Derived fields
     FIELD normalized_name: STRING
     FIELD qualified_name: STRING
 
-	# Childs and vlues
+	# Children and values
     FIELD value: STRING
     FIELD text_lines: STRING[]
     FIELD children: Node[]
-    
+
     # Optional Frozen flag
     FIELD is_frozen: BOOLEAN = false
 
@@ -28,7 +28,7 @@ CLASS Node
 		value 		= trimToNotNull(value)
 
         normalized_name	= normalizeChars(name)
-        
+
         IF isEmpty(namespace)
             qualified_name = normalized_name
         ELSE
@@ -36,18 +36,104 @@ CLASS Node
         END IF
 
 		# Basic checks
-		IF NOT validNamespaceFormat(namespace)
-			ERROR(line, "Not empty value with Block Text")
-		END IF
+
+		# Namespace format (a.b mínimo, ASCII, '@' opcional). Lanza si no es válido.
+		validateNamespaceFormat(namespace, line)
 
         IF NOT isEmpty(value) AND block_text
-            ERROR(line, "Not empty value with Block Text")
+            THROW ParseException(line, "INVALID_LINE", "Not empty value with Block Text")
         END IF
 
         IF isEmpty(normalized_name)
-            ERROR(line, "Empty normalized name")
+            THROW ParseException(line, "INVALID_NODE_NAME", "Node name not valid: " + name)
         END IF
     END CONSTRUCTOR
+
+    # ----------------------------------------
+    # Accessors
+    # ----------------------------------------
+
+    FUNCTION getName(): STRING
+        RETURN name
+    END FUNCTION
+
+    FUNCTION getNormalizedName(): STRING
+        RETURN normalized_name
+    END FUNCTION
+
+    FUNCTION getNamespace(): STRING
+        RETURN namespace
+    END FUNCTION
+
+    # Identidad lógica del nodo: namespace:nombre_canonico (o sólo el nombre si no hay namespace)
+    FUNCTION getQualifiedName(): STRING
+        RETURN qualified_name
+    END FUNCTION
+
+    FUNCTION getValue(): STRING
+        RETURN value
+    END FUNCTION
+
+    FUNCTION getTextLines(): STRING[]
+        RETURN text_lines
+    END FUNCTION
+
+    PROCEDURE addTextLine(text_line: STRING)
+        text_lines.push(text_line)
+    END PROCEDURE
+
+    FUNCTION getChildren(): Node[]
+        RETURN children
+    END FUNCTION
+
+    PROCEDURE addChild(node: Node)
+        children.push(node)
+    END PROCEDURE
+
+    FUNCTION getLine(): INTEGER
+        RETURN line
+    END FUNCTION
+
+    FUNCTION getLevel(): INTEGER
+        RETURN level
+    END FUNCTION
+
+    FUNCTION isTextNode(): BOOLEAN
+        RETURN block_text
+    END FUNCTION
+
+    # Texto efectivo: las líneas del bloque unidas por '\n', o el valor inline si no es bloque
+    FUNCTION getText(): STRING
+        IF isTextNode()
+            RETURN join(text_lines, "\n")
+        ELSE
+            RETURN value
+        END IF
+    END FUNCTION
+
+    # Devuelve el único hijo con ese nombre canónico, NULL si no hay, o error si hay más de uno
+    FUNCTION getChild(cname: STRING): Node
+        result: Node[] = getChildren(cname)
+        IF result.size() > 1
+            THROW ParseException(line, "MORE_THAN_ONE_CHILD", "More than 1 child. Use getChildren")
+        END IF
+        IF result.size() == 0
+            RETURN NULL
+        END IF
+        RETURN result[0]
+    END FUNCTION
+
+    # Devuelve todos los hijos directos con ese nombre canónico (preservando el orden)
+    FUNCTION getChildren(cname: STRING): Node[]
+        key: STRING = normalizeChars(cname)
+        result: Node[] = []
+        FOREACH child IN children
+            IF child.getNormalizedName() == key
+                result.push(child)
+            END IF
+        END FOREACH
+        RETURN result
+    END FUNCTION
 
 	# Optional method, platform dependent
     PROCEDURE freeze()

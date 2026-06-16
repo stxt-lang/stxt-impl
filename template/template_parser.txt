@@ -1,0 +1,120 @@
+# TemplateParser: transforma un documento @stxt.template en un Schema equivalente.
+# Un template es "azúcar sintáctico" sobre un schema: el bloque "Structure >>" describe
+# la estructura esperada, y aquí se compila a NodeDefinition / ChildDefinition.
+#
+# Estrategia: el contenido del bloque "Structure >>" es, en sí mismo, un documento @STXT@.
+# Se re-parsea con el parser core y luego se recorre en profundidad, generando una
+# definición de nodo por cada línea local y un Child por cada hijo.
+
+# Transforma el nodo raíz "Template (@stxt.template): <ns>" en un Schema.
+FUNCTION transformNodeToSchema(node: Node): Schema
+
+    # El valor inline de "Template" es el namespace objetivo
+    result: Schema = Schema(node.getValue(), node.getLine())
+
+    # Localizamos el bloque obligatorio "Structure >>"
+    structure: Node = node.getChild("structure")
+    IF structure IS NULL
+        THROW ParseException(node.getLine(), "TEMPLATE_STRUCTURE_REQUIRED", "Template must define 'Structure >>'")
+    END IF
+
+    # El texto del bloque es un documento @STXT@: lo re-parseamos.
+    text: STRING    = structure.getText()
+    offset: INTEGER = structure.getLine()    # desplazamiento para reportar líneas reales
+
+    nodes: Node[] = Parser().parse(text)
+
+    # Cada nodo de nivel superior de Structure se inserta en el schema
+    FOREACH n IN nodes
+        addToSchema(result, n, offset)
+    END FOREACH
+
+    RETURN result
+END FUNCTION
+
+# Inserta recursivamente un nodo de Structure (y sus hijos) en el schema en construcción.
+PROCEDURE addToSchema(schema: Schema, node: Node, offset: INTEGER)
+
+    namespace: STRING = node.getNamespace()
+    name: STRING      = node.getName()
+
+    # Sin namespace explícito => namespace objetivo del template
+    IF isEmpty(namespace)
+        namespace = schema.getNamespace()
+    END IF
+
+    # Parseamos el RuleSpec (cardinalidad / tipo / valores) del valor inline
+    cl: ChildLine = ChildLineParser.parse(node.getValue(), node.getLine() + offset)
+
+    # Nodo cross-namespace: NO se define localmente; sólo puede declarar cardinalidad.
+    IF namespace != schema.getNamespace()
+        type: STRING = cl.getType()
+        IF type IS NOT NULL AND NOT type.trim().isEmpty()
+            THROW ParseException(node.getLine() + offset, "TYPE_DEFINITION_NOT_ALLOWED",
+                "Not allowed type definition in external namespaces")
+        END IF
+        RETURN     # no creamos definiciones para nodos de otros namespaces
+    END IF
+
+    # ¿Es una definición nueva o una reaparición (referencia)?
+    schema_node: NodeDefinition = schema.getNodeDefinition(name)
+
+    IF schema_node IS NULL
+        # --- Definición nueva ---
+        type: STRING = cl.getType()
+        IF type IS NULL
+            type = "INLINE"
+        END IF
+        schema_node = NodeDefinition(node.getName(), type, node.getLine() + offset)
+        schema.addNodeDefinition(schema_node)
+
+        # Valores ENUM si los hubiera
+        values: STRING[] = cl.getValues()
+        IF values IS NOT NULL
+            FOREACH value IN values
+                schema_node.addValue(value)
+            END FOREACH
+        END IF
+
+    ELSE
+        # --- Reaparición: DEBE ser una referencia "@Nombre Nodo" ---
+        type: STRING = cl.getType()
+
+        # Una reaparición sin "@" es redefinir un nodo ya existente: error.
+        IF type IS NULL OR NOT type.startsWith("@")
+            THROW ParseException(node.getLine() + offset, "NODE_DEFINED_MULTIPLE_TIMES",
+                "Multiple node reference must start with @: " + node.getName())
+        END IF
+
+        # El nombre de la referencia DEBE coincidir (canónicamente) con el de la línea.
+        type = type.substring(1, type.length())
+        type = normalizeChars(type)
+
+        IF type == node.getNormalizedName()
+            RETURN     # referencia válida: no se redefine ni se procesan hijos
+        END IF
+
+        THROW ParseException(node.getLine() + offset, "NODE_REFERENCE_NOT_VALID",
+            "Reference must be '@" + node.getName() + "', not '" + type + "'")
+    END IF
+
+    # Ya tenemos la definición: procesamos sus hijos directos.
+    FOREACH child IN node.getChildren()
+
+        cl = ChildLineParser.parse(child.getValue(), child.getLine() + offset)
+
+        child_name: STRING      = child.getName()
+        child_namespace: STRING = child.getNamespace()
+        IF isEmpty(child_namespace)
+            child_namespace = schema.getNamespace()
+        END IF
+
+        # El hijo se declara como Child (con su cardinalidad) en la definición actual
+        sch_child: ChildDefinition = ChildDefinition(child_name, child_namespace,
+            cl.getMin(), cl.getMax(), child.getLine() + offset)
+        schema_node.addChildDefinition(sch_child)
+
+        # Y se procesa recursivamente como definición/referencia
+        addToSchema(schema, child, offset)
+    END FOREACH
+END PROCEDURE

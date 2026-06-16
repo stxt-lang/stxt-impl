@@ -1,0 +1,78 @@
+# Providers de template: obtienen un Schema a partir de documentos @stxt.template.
+# Reutilizan la interfaz SchemaProvider del paquete schema, ya que un template compila
+# a la misma representación lógica (Schema) que un schema.
+
+# -------------------------------------------------------------------
+# Provider que carga templates desde recursos externos
+# -------------------------------------------------------------------
+CLASS TemplateSchemaProvider IMPLEMENTS SchemaProvider
+
+    FIELD loader: ResourcesLoader
+
+    CONSTRUCTOR (loader)
+        loader = loader
+    END CONSTRUCTOR
+
+    FUNCTION getSchema(namespace: STRING): Schema
+
+        # Recuperamos el texto del template para el namespace objetivo
+        template: STRING = loader.retrieve("@stxt.template", namespace)
+
+        # Parseamos validando contra el meta-template (@stxt.template) durante el parseo
+        parser: Parser = Parser()
+        parser.registerValidator(SchemaValidator(MetaTemplateSchemaProvider()))
+
+        nodes: Node[] = parser.parse(template)
+        IF nodes.size() != 1
+            THROW SchemaException("INVALID_SCHEMA", "There are " + nodes.size() + ", and expected is 1")
+        END IF
+
+        # Compilamos el template a Schema
+        sch: Schema = TemplateParser.transformNodeToSchema(nodes[0])
+
+        # El namespace declarado DEBE coincidir con el solicitado
+        IF NOT equalsIgnoreCase(sch.getNamespace(), namespace)
+            THROW SchemaException("INVALID_SCHEMA", "Schema namespace is " + sch.getNamespace() + ", and expected is " + namespace)
+        END IF
+
+        RETURN sch
+    END FUNCTION
+
+END CLASS
+
+# -------------------------------------------------------------------
+# Provider del meta-template (@stxt.template) embebido
+# -------------------------------------------------------------------
+# Valida la forma de cualquier documento @stxt.template:
+#   Template (@stxt.template):
+#       Description: (?) TEXT
+#       Structure:   (1) BLOCK
+CLASS MetaTemplateSchemaProvider IMPLEMENTS SchemaProvider
+
+    CONSTANT META_TEXT: STRING = "Template (@stxt.template): @stxt.template ... (ver STXT-TEMPLATE-SPEC §15)"
+
+    FIELD meta: Schema
+
+    CONSTRUCTOR ()
+        parser: Parser = Parser()
+        nodes: Node[]  = parser.parse(META_TEXT)
+        IF nodes.size() != 1
+            THROW SchemaException("META_SCHEMA_INVALID", "Meta schema must produce exactly 1 document, got " + nodes.size())
+        END IF
+        # El propio meta-template se compila con el TemplateParser
+        meta = TemplateParser.transformNodeToSchema(nodes[0])
+    END CONSTRUCTOR
+
+    FUNCTION getSchema(namespace: STRING): Schema
+        IF namespace != "@stxt.template"
+            THROW ResourceNotFoundException("@stxt.template", namespace)
+        END IF
+
+        IF meta IS NULL
+            THROW SchemaException("META_SCHEMA_NOT_AVAILABLE", "Meta schema not available")
+        END IF
+
+        RETURN meta
+    END FUNCTION
+
+END CLASS

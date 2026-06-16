@@ -1,0 +1,46 @@
+# Schema: representación lógica de un @stxt.schema asociado a un namespace objetivo.
+# Contiene un conjunto de definiciones de nodo (NodeDefinition), indexadas por su
+# nombre canónico. Es el resultado de SchemaParser.transformNodeToSchema().
+
+CLASS Schema
+
+    # Namespace al que pertenece todo schema válido
+    CONSTANT SCHEMA_NAMESPACE: STRING = "@stxt.schema"
+
+    FIELD namespace: STRING
+
+    # Clave = nombre canónico del nodo. Preserva el orden de inserción.
+    FIELD nodes: MAP<STRING, NodeDefinition> = {}
+
+    CONSTRUCTOR (namespace, line)
+        namespace = lowerCase(namespace)
+
+        # El namespace objetivo DEBE ser un namespace válido (a.b mínimo, ASCII)
+        validateNamespaceFormat(namespace, line)
+    END CONSTRUCTOR
+
+    FUNCTION getNamespace(): STRING
+        RETURN namespace
+    END FUNCTION
+
+    FUNCTION getNodes(): MAP<STRING, NodeDefinition>
+        RETURN nodes
+    END FUNCTION
+
+    # Busca una definición de nodo por nombre (se canonicaliza antes de buscar)
+    FUNCTION getNodeDefinition(name: STRING): NodeDefinition
+        RETURN nodes[normalizeChars(name)]
+    END FUNCTION
+
+    PROCEDURE addNodeDefinition(node_definition: NodeDefinition)
+        qname: STRING = node_definition.getNormalizedName()
+
+        # No puede haber dos Node con el mismo nombre canónico (error de schema)
+        IF nodes.containsKey(qname)
+            THROW SchemaException("NODE_DEF_ALREADY_DEFINED", "Exists a previous node definition with: " + qname)
+        END IF
+
+        nodes.put(qname, node_definition)
+    END PROCEDURE
+
+END CLASS

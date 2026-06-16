@@ -7,7 +7,7 @@ PROCEDURE validateNamespaceFormat(namespace: STRING, line_number: INTEGER)
     END IF
 
     IF NOT NAMESPACE_FORMAT.matches(namespace)
-        Exception(line_number, "INVALID_NAMESPACE","Namespace not valid: " + namespace)
+        THROW ParseException(line_number, "INVALID_NAMESPACE", "Namespace not valid: " + namespace)
     END IF
 
 END PROCEDURE

@@ -1,3 +1,6 @@
+# NameNamespace: par (nombre, namespace) resultante de interpretar el texto que precede
+# a ':' o '>>' en la línea de un nodo. El namespace se devuelve siempre en minúsculas.
+
 CLASS NameNamespace
     FIELD name: STRING
     FIELD namespace: STRING
@@ -6,53 +9,68 @@ CLASS NameNamespace
         name = name
         namespace = namespace
     END CONSTRUCTOR
+
+    FUNCTION getName(): STRING
+        RETURN name
+    END FUNCTION
+
+    FUNCTION getNamespace(): STRING
+        RETURN namespace
+    END FUNCTION
 END CLASS
 
-# Token for a single name segment (letters, marks, numbers, underscore, hyphen)
-NAME_TOKEN: REGEX = "[\\p{L}\\p{M}\\p{N}_-]+"
-
-# Full name: one or more tokens separated by spaces
-NAME_PART: REGEX = NAME_TOKEN + "(?:\\s+" + NAME_TOKEN + ")*"
-
-# Namespace segment: lowercase alphanumeric
-NS_SEGMENT: REGEX = "[a-z0-9]+"
-
-# Full namespace: optional '@', dot-separated segments
-NAMESPACE: REGEX = "@?" + NS_SEGMENT + "(?:\\." + NS_SEGMENT + ")*"
-
-# Line pattern with optional explicit namespace in parentheses
-LINE_PATTERN: REGEX = "^\\s*(?<name>" + NAME_PART + ")(?:\\s*\\(\\s*(?<ns>" + NAMESPACE + ")\\s*\\))?\\s*$"
-
+# Separa el nombre del nodo de su namespace opcional entre paréntesis.
+#
+# Entrada (raw_name): el texto anterior a ':' o '>>', p. ej.:
+#   "Nombre de nodo"
+#   "Nombre de nodo (com.example.docs)"
+#   "Nombre de nodo (@un.namespace.especial)"
+#
+# El formato del namespace (a.b mínimo, ASCII, '@' opcional) NO se valida aquí; se valida
+# más adelante al construir el Node (ver validations.txt / node.txt). Aquí sólo se separan
+# las dos partes y se normaliza el namespace a minúsculas.
 FUNCTION parse(raw_name: STRING, inherited_namespace: STRING, line_number: INTEGER, full_line: STRING): NameNamespace
 
-    IF raw_name == null
-        Exception(line_number, "INVALID_LINE","Line not valid: " + full_line)
+    IF raw_name IS NULL
+        THROW ParseException(line_number, "INVALID_LINE", "Line not valid: " + full_line)
     END IF
 
-    IF NOT LINE_PATTERN.matches(raw_name) == false
-        Exception(line_number, "INVALID_NAMESPACE_DEF", "Line not valid: " + full_line)
-    END IF
+    raw_name = raw_name.trim()
 
-    name: STRING = matcher.group("name")
+    index_open: INTEGER  = raw_name.indexOf("(")
+    index_close: INTEGER = raw_name.indexOf(")")
 
-    IF name IS NULL OR name.isBlank()
-        Exception(line_number, "INVALID_LINE", "Line not valid: " + full_line)
-    END IF
+    name: STRING = NULL
 
-    # Default namespace: inherited or empty
-    IF inherited_namespace IS NOT NULL
-        namespace = inherited_namespace
-    ELSE
+    # Namespace por defecto: el heredado del padre, o vacío si no hay
+    namespace: STRING = inherited_namespace
+    IF namespace IS NULL
         namespace = EMPTY_NAMESPACE
     END IF
 
-    explicit_namespace: STRING = matcher.group("ns")
+    IF index_open != -1 AND index_close != -1
+        # Hay paréntesis: el '(' debe ir antes del ')' y ')' debe ser el último carácter
+        IF index_open > index_close OR index_close != raw_name.length() - 1
+            THROW ParseException(line_number, "INVALID_NAMESPACE", "Line not valid: " + full_line)
+        END IF
 
-    IF explicit_namespace IS NOT NULL AND NOT explicit_namespace.isBlank()
-        namespace = lowerCase(explicit_namespace)
+        name = raw_name.substring(0, index_open).trim()
+        namespace = raw_name.substring(index_open + 1, index_close).trim()
+
+        # El namespace vacío "()" no está permitido
+        IF namespace.isEmpty()
+            THROW ParseException(line_number, "INVALID_NAMESPACE", "Line not valid: " + full_line)
+        END IF
+
+    ELSE IF index_open == -1 AND index_close == -1
+        # Sin paréntesis: todo el texto es el nombre; se mantiene el namespace heredado
+        name = raw_name
+
+    ELSE
+        # Sólo un paréntesis (abre sin cerrar o cierra sin abrir): inválido
+        THROW ParseException(line_number, "INVALID_NAMESPACE", "Line not valid: " + full_line)
     END IF
 
-    RETURN NameNamespace(name, namespace)
+    RETURN NameNamespace(name, lowerCase(namespace))
 
 END FUNCTION
-

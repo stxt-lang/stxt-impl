@@ -1,0 +1,127 @@
+# SchemaParser: transforma un árbol @STXT@ ya parseado (un documento schema) en un
+# objeto Schema. El documento de entrada DEBE tener como raíz "Schema (@stxt.schema): <ns>".
+#
+# Precondición: el documento ya ha sido parseado por el parser core, y opcionalmente
+# validado contra el meta-schema (@stxt.schema). Aquí se construye la representación lógica.
+
+# Transforma el nodo raíz de un documento schema en un Schema.
+FUNCTION transformNodeToSchema(node: Node): Schema
+
+    node_name: STRING        = node.getNormalizedName()
+    namespace_schema: STRING = node.getNamespace()
+
+    # La raíz DEBE ser "schema" en el namespace @stxt.schema
+    IF node_name != "schema" OR namespace_schema != Schema.SCHEMA_NAMESPACE
+        THROW SchemaException("NOT_STXT_SCHEMA",
+            "Se espera schema(" + Schema.SCHEMA_NAMESPACE + ") y es " + node_name + "(" + namespace_schema + ")")
+    END IF
+
+    # El valor inline de la raíz Schema es el namespace objetivo
+    schema: Schema = Schema(node.getValue(), node.getLine())
+
+    # Conjunto de nombres canónicos de los Node declarados (para validar 8.1)
+    all_names: STRING[] = []
+
+    # Cada hijo "Node" del schema define un NodeDefinition
+    FOREACH n IN node.getChildren("node")
+        sch_node: NodeDefinition = createNodeDefinition(n, schema.getNamespace())
+        schema.addNodeDefinition(sch_node)
+        all_names.push(sch_node.getNormalizedName())
+    END FOREACH
+
+    # Todo Child del propio namespace DEBE referirse a un Node declarado en este schema
+    # (los Child cross-namespace se validan en su schema correspondiente, no aquí).
+    FOREACH sch_node IN schema.getNodes().values()
+        FOREACH sch_child IN sch_node.getChildren().values()
+            IF sch_child.getNamespace() == schema.getNamespace()
+                IF NOT all_names.contains(sch_child.getNormalizedName())
+                    THROW ValidationException(0, "CHILD_NOT_DEFINED",
+                        "Child " + sch_child.getNormalizedName() + " not defined in " + schema.getNamespace())
+                END IF
+            END IF
+        END FOREACH
+    END FOREACH
+
+    RETURN schema
+END FUNCTION
+
+# Construye un NodeDefinition a partir de un nodo "Node:".
+FUNCTION createNodeDefinition(n: Node, namespace: STRING): NodeDefinition
+
+    # El valor inline de "Node" es el nombre del nodo objetivo
+    name: STRING = n.getValue()
+
+    # Tipo por defecto INLINE si no se especifica "Type:"
+    type: STRING = "INLINE"
+    type_node: Node = n.getChild("type")
+    IF type_node IS NOT NULL
+        type = type_node.getValue()
+    END IF
+
+    result: NodeDefinition = NodeDefinition(name, type, n.getLine())
+
+    # Hijos declarados dentro de "Children:"
+    children: Node = n.getChild("children")
+    IF children IS NOT NULL
+        FOREACH child IN children.getChildren("child")
+            putChildToNodeDefinition(result, child, namespace)
+        END FOREACH
+    END IF
+
+    # Valores permitidos: sólo válidos para tipo ENUM
+    values: Node[] = n.getChildren("values")
+    IF values IS NOT NULL AND values.size() > 0
+
+        IF type != "ENUM"
+            THROW ParseException(n.getLine(), "VALUES_ONLY_SUPPORTED_BY_ENUM",
+                "Values only supported for type ENUM, not for type " + type)
+        END IF
+
+        IF values.size() > 1
+            THROW STXTException("INVALID_SIZE_VALUES", "Unexpected number of values: " + values.size())
+        END IF
+
+        # Recogemos cada "Value:" dentro del nodo "Values:"
+        values_node: Node = values[0]
+        values = values_node.getChildren("value")
+        FOREACH value IN values
+            result.addValue(value.getValue())
+        END FOREACH
+    END IF
+
+    # Un ENUM DEBE declarar al menos un valor
+    IF type == "ENUM" AND (values IS NULL OR values.size() == 0)
+        THROW ParseException(n.getLine(), "VALUES_EMPTY_FOR_ENUM", "ENUM Type must include values")
+    END IF
+
+    RETURN result
+END FUNCTION
+
+# Crea un ChildDefinition a partir de un nodo "Child:" y lo añade al NodeDefinition.
+PROCEDURE putChildToNodeDefinition(node_definition: NodeDefinition, child: Node, def_namespace: STRING)
+
+    # El valor inline de "Child" es el nombre del hijo, con namespace opcional entre ()
+    nn: NameNamespace = NameNamespaceParser.parse(child.getValue(), def_namespace, child.getLine(), child.getValue())
+    name: STRING      = nn.getName()
+    namespace: STRING = nn.getNamespace()
+
+    sch_child: ChildDefinition = ChildDefinition(name, namespace,
+        getInteger(child, "min"), getInteger(child, "max"), child.getLine())
+
+    node_definition.addChildDefinition(sch_child)
+END PROCEDURE
+
+# Lee un hijo numérico (Min/Max) de un nodo. Devuelve NULL si no existe.
+FUNCTION getInteger(node: Node, child_name: STRING): INTEGER
+    n: Node = node.getChild(child_name)
+    IF n IS NULL
+        RETURN NULL
+    END IF
+
+    # Falla de forma ruidosa si el valor no es un entero válido
+    IF NOT isInteger(n.getValue())
+        THROW ParseException(node.getLine(), "INVALID_INTEGER", "Integer not valid: " + n.getValue())
+    END IF
+
+    RETURN parseInteger(n.getValue())
+END FUNCTION

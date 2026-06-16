@@ -1,0 +1,41 @@
+# ChildLine: resultado de parsear el RuleSpec de una línea de "Structure >>".
+# Es un contenedor inmutable con la cardinalidad (min/max), el tipo y, si es ENUM,
+# la lista de valores. Cualquier campo puede ser NULL si no se especificó.
+#
+# Ejemplos de RuleSpec que producen un ChildLine:
+#   (1)                -> min=1, max=1, type=NULL,  values=NULL
+#   (?) TEXT           -> min=NULL, max=1, type="TEXT"
+#   (1) ENUM [a, b]    -> min=1, max=1, type="ENUM", values=["a","b"]
+#   @Body Content      -> type="@Body Content" (referencia a nodo)
+
+CLASS ChildLine
+
+    FIELD type: STRING          # tipo, referencia "@Nombre" o NULL
+    FIELD min: INTEGER          # NULL = sin mínimo
+    FIELD max: INTEGER          # NULL = sin máximo
+    FIELD values: STRING[]      # valores ENUM o NULL
+
+    CONSTRUCTOR (type, min, max, values)
+        type   = type
+        min    = min
+        max    = max
+        values = values
+    END CONSTRUCTOR
+
+    FUNCTION getType(): STRING
+        RETURN type
+    END FUNCTION
+
+    FUNCTION getMin(): INTEGER
+        RETURN min
+    END FUNCTION
+
+    FUNCTION getMax(): INTEGER
+        RETURN max
+    END FUNCTION
+
+    FUNCTION getValues(): STRING[]
+        RETURN values
+    END FUNCTION
+
+END CLASS

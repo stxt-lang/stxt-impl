@@ -1,20 +1,49 @@
+# Utilidades de cadena. Salvo indicación, operan sobre STRING y devuelven STRING.
+
+# Trim + compactación de espacios internos a uno solo. Usado para el name de los nodos.
 FUNCTION compactSpaces (str)
 END FUNCTION
 
+# Nombre canónico: NFKD, minúsculas, sin diacríticos, [^a-z0-9] -> '-', sin '-' repetidos ni en extremos.
 FUNCTION normalizeChars (str)
 END FUNCTION
 
+# Pasa a minúsculas (ASCII / locale raíz). Devuelve "" si str es NULL. Usado para namespaces.
 FUNCTION lowerCase (str)
 END FUNCTION
 
+# Devuelve "" si str es NULL; en caso contrario, str con trim a ambos lados.
 FUNCTION trimToNotNull(str)
 END FUNCTION
 
+# Elimina espacios/tabs sólo al final de la línea. Usado en bloques de texto >>.
 FUNCTION rightTrim (str)
 END FUNCTION
 
+# Elimina TODOS los espacios, tabs y saltos de línea. Usado por tipos BASE64 y HEXADECIMAL.
+FUNCTION cleanSpaces (str)
+END FUNCTION
+
+# true si str es NULL o cadena vacía.
 FUNCTION isEmpty(str)
 END FUNCTION
 
+# Quita el BOM UTF-8 inicial si existe.
 FUNCTION removeUTF8BOM(str)
+END FUNCTION
+
+# Une las cadenas de un array insertando el separador entre ellas.
+FUNCTION join(parts: STRING[], separator: STRING)
+END FUNCTION
+
+# Parte str por el separador y devuelve los fragmentos.
+FUNCTION split(str: STRING, separator: STRING): STRING[]
+END FUNCTION
+
+# true si str termina por el sufijo dado.
+FUNCTION endsWith(str: STRING, suffix: STRING): BOOLEAN
+END FUNCTION
+
+# Comparación de cadenas ignorando mayúsculas/minúsculas.
+FUNCTION equalsIgnoreCase(a: STRING, b: STRING): BOOLEAN
 END FUNCTION
