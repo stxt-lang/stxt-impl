@@ -9,12 +9,13 @@ END FUNCTION
 FUNCTION isInteger(str: STRING): BOOLEAN
 END FUNCTION
 
-# Converts str into an INTEGER. MUST only be called when isInteger(str) is true.
-FUNCTION parseInteger(str: STRING): INTEGER
+# true if str is a non-negative integer with no sign and no trailing text ("^\d+$").
+# Used by the template cardinality parser.
+FUNCTION isNatural(str: STRING): BOOLEAN
 END FUNCTION
 
-# true if "min,max" are two valid integers. Used by the template cardinality parser.
-FUNCTION isValidMinMax(str: STRING): BOOLEAN
+# Converts str into an INTEGER. MUST only be called when isInteger/isNatural is true.
+FUNCTION parseInteger(str: STRING): INTEGER
 END FUNCTION
 
 # Parses a URI. Returns an object with getScheme()/getHost(), or NULL if not valid.

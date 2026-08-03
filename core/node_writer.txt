@@ -1,0 +1,93 @@
+# NodeWriter: serializes a Node (or a list of root nodes) back to STXT text.
+#
+# ROUND-TRIP GUARANTEE: writing a parsed tree and re-parsing the output MUST produce
+# the same logical tree (same names, namespaces, values, text lines and children).
+# Note the source text is not preserved verbatim: comments are gone, whitespace is
+# normalized and the namespace is only written where it is not inherited.
+#
+# Location note: stxt-js and stxt-java host this class in their "runtime" package.
+
+# Indentation styles
+CONSTANT INDENT_TABS: STRING     = "TABS"       # one tab character per level
+CONSTANT INDENT_SPACES_4: STRING = "SPACES_4"   # four spaces per level
+
+CLASS NodeWriter
+
+    # Serializes a node (along with its children) to STXT text.
+    FUNCTION toSTXT(node: Node, style: STRING): STRING
+        out: STRING[] = []
+        writeNode(out, node, 0, style, "")
+        RETURN join(out, "")
+    END FUNCTION
+
+    # Serializes a list of root nodes to STXT text, separated by a blank line.
+    FUNCTION toSTXTDocs(docs: Node[], style: STRING): STRING
+        out: STRING[] = []
+        first: BOOLEAN = true
+
+        FOREACH doc IN docs
+            IF NOT first
+                out.push("\n")
+            END IF
+            first = false
+            writeNode(out, doc, 0, style, "")
+        END FOREACH
+
+        RETURN join(out, "")
+    END FUNCTION
+
+    # Writes one node and, recursively, its children.
+    # parent_ns: effective namespace of the parent. The namespace is only written when
+    # the node has one AND it differs from the inherited one (namespace inheritance
+    # makes the rest redundant).
+    PROCEDURE writeNode(out: STRING[], n: Node, depth: INTEGER, style: STRING, parent_ns: STRING)
+
+        writeIndent(out, depth, style)
+
+        ns: STRING = n.getNamespace()
+
+        out.push(n.getName())
+        IF NOT isEmpty(ns) AND ns != parent_ns
+            out.push(" (" + ns + ")")
+        END IF
+
+        IF n.isTextNode()
+            out.push(" >>\n")
+
+            # Block lines are written one level deeper than the node
+            FOREACH text_line IN n.getTextLines()
+                writeIndent(out, depth + 1, style)
+                out.push(text_line + "\n")
+            END FOREACH
+        ELSE
+            out.push(":")
+            value: STRING = n.getValue()
+            IF NOT isEmpty(value)
+                out.push(" " + value)
+            END IF
+            out.push("\n")
+        END IF
+
+        FOREACH child IN n.getChildren()
+            writeNode(out, child, depth + 1, style, ns)
+        END FOREACH
+
+    END PROCEDURE
+
+    PROCEDURE writeIndent(out: STRING[], depth: INTEGER, style: STRING)
+        IF depth == 0
+            RETURN
+        END IF
+
+        i: INTEGER = 0
+        WHILE i < depth
+            IF style == INDENT_SPACES_4
+                out.push("    ")
+            ELSE
+                out.push("\t")
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+END CLASS

@@ -1,0 +1,73 @@
+# STXT exceptions. Every exception carries an UPPERCASE error code that MUST be
+# identical across implementations (error codes are part of the conformance surface).
+#
+# All exceptions expose getMessage(); the ones below add getCode() and, where it
+# applies, getLine().
+
+# Syntax error detected while parsing (lexical/structural phase, not schema).
+CLASS ParseException
+
+    FIELD line: INTEGER         # line number of the document where the error was detected
+    FIELD code: STRING          # error code in UPPERCASE (e.g. "INVALID_LINE")
+    FIELD message: STRING
+
+    CONSTRUCTOR (line, code, message)
+        line    = line
+        code    = code
+        message = message
+    END CONSTRUCTOR
+
+    FUNCTION getLine(): INTEGER
+        RETURN line
+    END FUNCTION
+
+    FUNCTION getCode(): STRING
+        RETURN code
+    END FUNCTION
+
+    FUNCTION getMessage(): STRING
+        RETURN message
+    END FUNCTION
+
+    # A copy of this exception (PRESERVING its concrete subtype) located at another
+    # line. Used to shift errors of re-parsed blocks to the line of the original
+    # document (see template_parser.txt).
+    FUNCTION withLine(new_line: INTEGER): ParseException
+        RETURN <same subtype>(new_line, code, message)
+    END FUNCTION
+
+END CLASS
+
+# Semantic validation error (schema, type or cardinality), detected when a node is
+# closed. Extends ParseException so both travel together in ParseResult.getErrors();
+# implementations that tell them apart (e.g. an editor painting validation errors as
+# warnings) MUST preserve the subtype.
+CLASS ValidationException EXTENDS ParseException
+
+    CONSTRUCTOR (line, code, message)
+        super(line, code, message)
+    END CONSTRUCTOR
+
+END CLASS
+
+# Error that is not tied to a line of the document: a wrong use of the API or an
+# inconsistency found at runtime (e.g. an ambiguous child, a type registered twice).
+CLASS RuntimeException
+
+    FIELD code: STRING          # error code in UPPERCASE (e.g. "AMBIGUOUS_CHILD")
+    FIELD message: STRING
+
+    CONSTRUCTOR (code, message)
+        code    = code
+        message = message
+    END CONSTRUCTOR
+
+    FUNCTION getCode(): STRING
+        RETURN code
+    END FUNCTION
+
+    FUNCTION getMessage(): STRING
+        RETURN message
+    END FUNCTION
+
+END CLASS

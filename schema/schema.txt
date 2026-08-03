@@ -1,21 +1,23 @@
-# Schema: representación lógica de un @stxt.schema asociado a un namespace objetivo.
-# Contiene un conjunto de definiciones de nodo (NodeDefinition), indexadas por su
-# nombre canónico. Es el resultado de SchemaParser.transformNodeToSchema().
+# Schema: logical representation of a @stxt.schema associated with a target namespace.
+# It holds a set of node definitions (NodeDefinition), indexed by their canonical name.
+# It is the result of SchemaParser.transformNodeToSchema() (or of compiling a template).
 
 CLASS Schema
 
-    # Namespace al que pertenece todo schema válido
+    # Namespace of the schema language itself
     CONSTANT SCHEMA_NAMESPACE: STRING = "@stxt.schema"
 
     FIELD namespace: STRING
+    FIELD description: STRING       # optional description of the schema, or NULL
 
-    # Clave = nombre canónico del nodo. Preserva el orden de inserción.
+    # Key = canonical name of the node. Preserves insertion order.
     FIELD nodes: MAP<STRING, NodeDefinition> = {}
 
-    CONSTRUCTOR (namespace, line)
-        namespace = lowerCase(namespace)
+    CONSTRUCTOR (namespace, line, description)
+        namespace   = lowerCase(namespace)
+        description = description
 
-        # El namespace objetivo DEBE ser un namespace válido (a.b mínimo, ASCII)
+        # The target namespace MUST be a valid namespace ('a.b' minimum, ASCII)
         validateNamespaceFormat(namespace, line)
     END CONSTRUCTOR
 
@@ -23,11 +25,16 @@ CLASS Schema
         RETURN namespace
     END FUNCTION
 
+    FUNCTION getDescription(): STRING
+        RETURN description
+    END FUNCTION
+
     FUNCTION getNodes(): MAP<STRING, NodeDefinition>
         RETURN nodes
     END FUNCTION
 
-    # Busca una definición de nodo por nombre (se canonicaliza antes de buscar)
+    # Looks up a node definition by name (canonicalized before the lookup).
+    # NULL if the node is not defined in this schema.
     FUNCTION getNodeDefinition(name: STRING): NodeDefinition
         RETURN nodes[normalizeChars(name)]
     END FUNCTION
@@ -35,9 +42,9 @@ CLASS Schema
     PROCEDURE addNodeDefinition(node_definition: NodeDefinition)
         qname: STRING = node_definition.getNormalizedName()
 
-        # No puede haber dos Node con el mismo nombre canónico (error de schema)
+        # Two Node definitions cannot share a canonical name (schema error)
         IF nodes.containsKey(qname)
-            THROW SchemaException("NODE_DEF_ALREADY_DEFINED", "Exists a previous node definition with: " + qname)
+            THROW ValidationException(0, "NODE_DEF_ALREADY_DEFINED", "Exists a previous node definition with: " + qname)
         END IF
 
         nodes.put(qname, node_definition)

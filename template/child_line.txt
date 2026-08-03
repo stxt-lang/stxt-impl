@@ -1,19 +1,22 @@
-# ChildLine: resultado de parsear el RuleSpec de una línea de "Structure >>".
-# Es un contenedor inmutable con la cardinalidad (min/max), el tipo y, si es ENUM,
-# la lista de valores. Cualquier campo puede ser NULL si no se especificó.
+# ChildLine: the result of parsing the RuleSpec of a "Structure >>" line.
+# An immutable container with the cardinality (min/max), the type and, for ENUM, the
+# list of values. Any field may be NULL when it was not specified.
 #
-# Ejemplos de RuleSpec que producen un ChildLine:
+# Examples of RuleSpec producing a ChildLine:
 #   (1)                -> min=1, max=1, type=NULL,  values=NULL
 #   (?) TEXT           -> min=NULL, max=1, type="TEXT"
 #   (1) ENUM [a, b]    -> min=1, max=1, type="ENUM", values=["a","b"]
-#   @Body Content      -> type="@Body Content" (referencia a nodo)
+#   @Body Content      -> type="@Body Content" (reference to a node)
+#
+# Note: values=[] (empty but not NULL) means the brackets were present but empty
+# ("[]"), which counts as an explicit definition of values (see child_line_parser.txt).
 
 CLASS ChildLine
 
-    FIELD type: STRING          # tipo, referencia "@Nombre" o NULL
-    FIELD min: INTEGER          # NULL = sin mínimo
-    FIELD max: INTEGER          # NULL = sin máximo
-    FIELD values: STRING[]      # valores ENUM o NULL
+    FIELD type: STRING          # type, "@Name" reference or NULL
+    FIELD min: INTEGER          # NULL = no minimum
+    FIELD max: INTEGER          # NULL = no maximum
+    FIELD values: STRING[]      # ENUM values, or NULL when no brackets were present
 
     CONSTRUCTOR (type, min, max, values)
         type   = type

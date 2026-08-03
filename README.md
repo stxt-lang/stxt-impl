@@ -1,23 +1,23 @@
-# Guía de estilo del Pseudocódigo
+# Pseudocode Style Guide
 
-## 1. Propósito
+## 1. Purpose
 
-Este pseudolenguaje se utiliza para **describir lógica, flujo de control y responsabilidades** 
-de un sistema de forma clara y consistente, sin depender de la sintaxis 
-ni de las restricciones de ningún lenguaje de programación específico.
+This pseudo-language is used to **describe logic, control flow and responsibilities**
+of a system in a clear and consistent way, without depending on the syntax
+or the constraints of any specific programming language.
 
 ---
 
 ## 2. Keywords
 
-Las keywords representan control de flujo, definición de estructuras y operaciones fundamentales.
+Keywords represent control flow, structure definition and fundamental operations.
 
-**Convención:**
+**Convention:**
 
-* Siempre en **MAYÚSCULAS**
-* Escritas en inglés
+* Always in **UPPERCASE**
+* Written in English
 
-**Ejemplos:**
+**Examples:**
 
 ```text
 IF
@@ -45,7 +45,7 @@ TRY
 CATCH
 ```
 
-Para mejorar la legibilidad, se recomienda usar finales explícitos:
+For readability, explicit block endings are recommended:
 
 ```text
 END IF
@@ -58,15 +58,15 @@ END STRUCTURE
 
 ## 3. Variables
 
-Las variables representan estado o datos temporales.
+Variables represent state or temporary data.
 
-**Convención:**
+**Convention:**
 
 * `snake_case`
-* En minúsculas
-* Nombres descriptivos (sustantivos o sintagmas nominales)
+* Lowercase
+* Descriptive names (nouns or noun phrases)
 
-**Ejemplos:**
+**Examples:**
 
 ```text
 user_id
@@ -77,32 +77,32 @@ retry_count
 
 ---
 
-## 4. Tipado de las variables
+## 4. Variable typing
 
-Las variables pueden mostrar el tipo para mejorar la claridad. Se usará lo siguiente:
+Variables may show their type to improve clarity, as follows:
 
-nombre_variable: TIPO
+variable_name: TYPE
 
-**Ejemplo de definición**
+**Definition example**
 
 ```text
-nombre_variable: STRING = "Hola"
+variable_name: STRING = "Hello"
 
 ```
 
-### 4.1 Tipos básicos comunes
+### 4.1 Common basic types
 
-Se definen los siguientes tipos básicos
+The following basic types are defined:
 
-* INTEGER: Números enteros
-* FLOAT: Números con coma flotante
-* STRING: Cadenas de caracteres
+* INTEGER: Whole numbers
+* FLOAT: Floating point numbers
+* STRING: Character strings
 * BOOLEAN: Boolean (true/false)
-* REGEX: Expresiones regulares, alta dependencia del lenguaje
+* REGEX: Regular expressions, highly language dependent
 
 ### 4.2 STRING
 
-Se supone que STRING tiene al menos los siguientes métodos comunes:
+STRING is assumed to have at least the following common methods:
 
 * length()
 * charAt(pos)
@@ -110,30 +110,30 @@ Se supone que STRING tiene al menos los siguientes métodos comunes:
 * substring(ini_included,end_excluded)
 * indexOf(str)
 
-En caso de no existir, se debería implementar.
+If missing, they should be implemented.
 
 ### 4.3 Arrays
 
-Se muestran arrays como lo siguiente:
+Arrays are shown as follows:
 
 ```text
-array_de_strings: STRING[] = []
-array_de_objetos: UnaClase[] = []
+array_of_strings: STRING[] = []
+array_of_objects: SomeClass[] = []
 ```
 
-Suponemos que array también tiene los siguentes métodos:
+Arrays are also assumed to have the following methods:
 
 * length()
-* push(valor)
-* pushAll(array): Añade todos los valores de otro array al final
-* pop(): Recupera y elimina el último valor
-* last(): Recupera el último valor
-* contains(valor): Devuelve true si el valor existe en el array
-* Se recupera un valor con nombre_variable[posicion]
+* push(value)
+* pushAll(array): Appends every value of another array at the end
+* pop(): Retrieves and removes the last value
+* last(): Retrieves the last value
+* contains(value): Returns true if the value exists in the array
+* A value is retrieved with variable_name[position]
 
-### 4.4 Maps (diccionarios)
+### 4.4 Maps (dictionaries)
 
-Estructura clave-valor (equivale a `HashMap` en Java, `Map`/objeto en JavaScript y `dict` en Python).
+Key-value structure (equivalent to `HashMap` in Java, `Map`/object in JavaScript and `dict` in Python).
 
 ```text
 prices: MAP<STRING, FLOAT> = {}
@@ -141,38 +141,38 @@ prices["coffee"] = 1.50
 config: MAP = { "host": "localhost", "port": 8080 }
 ```
 
-Suponemos que un map tiene los siguientes métodos:
+A map is assumed to have the following methods:
 
-* put(clave, valor): Inserta o actualiza
-* get(clave): Recupera el valor de una clave
-* containsKey(clave): Devuelve true si la clave existe
-* remove(clave): Elimina una entrada
-* keys(): Devuelve las claves
-* size(): Número de entradas
-* Se recupera/asigna un valor con nombre_variable[clave]
+* put(key, value): Inserts or updates
+* get(key): Retrieves the value of a key
+* containsKey(key): Returns true if the key exists
+* remove(key): Removes an entry
+* keys(): Returns the keys
+* size(): Number of entries
+* A value is retrieved/assigned with variable_name[key]
 
 ---
 
-## 5. Funciones y procedimientos
+## 5. Functions and procedures
 
-Las funciones y procedimientos representan comportamiento.
+Functions and procedures represent behavior.
 
 ### FUNCTION
 
-* Devuelve un valor
-* Usa `RETURN`
+* Returns a value
+* Uses `RETURN`
 
 ### PROCEDURE
 
-* No devuelve valor
-* Produce efectos (modifica estado, escribe logs, envía mensajes, etc.)
+* Returns no value
+* Produces effects (modifies state, writes logs, sends messages, etc.)
 
-**Convención común:**
+**Common convention:**
 
 * `camelCase`
-* Comienzan con verbo
+* Start with a verb
 
-**Ejemplos:**
+**Examples:**
 
 ```text
 FUNCTION calculateTotalPrice
@@ -181,16 +181,16 @@ PROCEDURE sendNotification
 
 ---
 
-## 6. Clases
+## 6. Classes
 
-Las clases representan conceptos del dominio o agrupaciones lógicas de comportamiento y estado.
+Classes represent domain concepts or logical groupings of behavior and state.
 
-**Convención:**
+**Convention:**
 
 * `PascalCase`
-* Sustantivos en singular
+* Singular nouns
 
-**Ejemplos:**
+**Examples:**
 
 ```text
 Order
@@ -200,17 +200,17 @@ UserRepository
 
 ---
 
-## 7. Asignación
+## 7. Assignment
 
-La asignación se realiza con un único operador.
+Assignment uses a single operator.
 
-**Convención:**
+**Convention:**
 
 ```text
 variable = expression
 ```
 
-**Ejemplos:**
+**Examples:**
 
 ```text
 total_price = unit_price * quantity
@@ -219,17 +219,17 @@ retry_count = retry_count + 1
 
 ---
 
-## 8. Operadores aritméticos
+## 8. Arithmetic operators
 
-Se utilizan los operadores aritméticos comunes a todos los lenguajes.
+The arithmetic operators common to every language are used.
 
 ```text
 +   -   *   /   %
 ```
 
-* `%` es el módulo (resto de la división entera)
+* `%` is the modulo (remainder of the integer division)
 
-**Ejemplos:**
+**Examples:**
 
 ```text
 total_price = unit_price * quantity
@@ -239,17 +239,17 @@ is_even = (n % 2) == 0
 
 ---
 
-## 9. Operadores de comparación
+## 9. Comparison operators
 
-Se utilizan operadores comunes y reconocibles, evitando símbolos no estándar.
+Common and recognizable operators are used, avoiding non-standard symbols.
 
-**Comparación:**
+**Comparison:**
 
 ```text
 ==   !=   <   <=   >   >=
 ```
 
-**Ejemplo:**
+**Example:**
 
 ```text
 IF age >= 18
@@ -257,14 +257,14 @@ IF age >= 18
 
 ---
 
-## 10. Operadores booleanos
+## 10. Boolean operators
 
-Las operaciones lógicas se expresan de forma explícita y legible.
+Logical operations are expressed explicitly and readably.
 
-**Convención:**
+**Convention:**
 
-* En MAYÚSCULAS
-* En inglés
+* UPPERCASE
+* In English
 
 ```text
 AND
@@ -272,7 +272,7 @@ OR
 NOT
 ```
 
-**Ejemplo:**
+**Example:**
 
 ```text
 IF is_active == true AND NOT is_blocked
@@ -280,9 +280,9 @@ IF is_active == true AND NOT is_blocked
 
 ---
 
-## 11. Booleanos
+## 11. Booleans
 
-Los valores booleanos se expresan de forma simple.
+Boolean values are expressed simply.
 
 ```text
 true
@@ -291,11 +291,11 @@ false
 
 ---
 
-## 12. Nulos (NULL) y el operador IS
+## 12. NULL and the IS operator
 
-`NULL` representa la **ausencia de valor** (equivale a `null` en Java/JavaScript y a `None` en Python).
+`NULL` represents the **absence of a value** (equivalent to `null` in Java/JavaScript and `None` in Python).
 
-Para comprobar si un valor es o no `NULL` se usa el operador `IS` / `IS NOT`, más legible que `==`:
+To check whether a value is `NULL` or not, the `IS` / `IS NOT` operator is used, more readable than `==`:
 
 ```text
 IF user IS NULL
@@ -307,18 +307,18 @@ IF result IS NOT NULL
 END IF
 ```
 
-* `IS` / `IS NOT` se usan únicamente para comparar con `NULL`.
-* Para el resto de comparaciones se utilizan los operadores de §9.
+* `IS` / `IS NOT` are used exclusively to compare against `NULL`.
+* Every other comparison uses the operators of §9.
 
 ---
 
-## 13. Bloques e indentación
+## 13. Blocks and indentation
 
-* La indentación es obligatoria y significativa para la lectura.
-* No se utilizan llaves `{}` ni caracteres especiales.
-* Cada bloque comienza tras una keyword y termina con su `END` correspondiente.
+* Indentation is mandatory and significant for reading.
+* No braces `{}` or special characters are used.
+* Each block starts after a keyword and ends with its matching `END`.
 
-**Ejemplo:**
+**Example:**
 
 ```text
 IF age >= 65
@@ -332,14 +332,14 @@ END IF
 
 ---
 
-## 14. Control de bucles
+## 14. Loop control
 
-Dentro de un bucle (`WHILE`, `FOREACH`) se puede alterar el flujo:
+Inside a loop (`WHILE`, `FOREACH`) the flow can be altered:
 
-* `BREAK`: termina el bucle inmediatamente
-* `CONTINUE`: salta a la siguiente iteración
+* `BREAK`: ends the loop immediately
+* `CONTINUE`: jumps to the next iteration
 
-**Ejemplo:**
+**Example:**
 
 ```text
 FOREACH item IN items
@@ -355,16 +355,16 @@ END FOREACH
 
 ---
 
-## 15. Excepciones
+## 15. Exceptions
 
-Las excepciones se lanzan con `THROW` y se capturan con `TRY` / `CATCH`.
+Exceptions are thrown with `THROW` and caught with `TRY` / `CATCH`.
 
-* Puede haber varios bloques `CATCH`, del más específico al más general.
-* La variable capturada puede tiparse con `nombre: TipoExcepcion`; sin tipo, captura cualquier excepción.
-* Toda excepción tiene `getMessage()`. Las excepciones de STXT llevan además un código de error
-  en MAYÚSCULAS, que debe coincidir entre implementaciones.
+* There may be several `CATCH` blocks, from the most specific to the most general.
+* The caught variable may be typed with `name: ExceptionType`; without a type, it catches any exception.
+* Every exception has `getMessage()`. STXT exceptions also carry an UPPERCASE error
+  code, which must match across implementations.
 
-**Ejemplo:**
+**Example:**
 
 ```text
 TRY
@@ -378,16 +378,16 @@ END TRY
 
 ---
 
-## 16. Comentarios
+## 16. Comments
 
-Los comentarios se utilizan para explicar intención o contexto, no para describir lo obvio.
+Comments are used to explain intent or context, not to describe the obvious.
 
-**Convención:**
+**Convention:**
 
-* Empiezan por `#`
-* En inglés
+* Start with `#`
+* In English
 
-**Ejemplo:**
+**Example:**
 
 ```text
 # Validate user before processing the order
@@ -395,7 +395,7 @@ Los comentarios se utilizan para explicar intención o contexto, no para describ
 
 ---
 
-## 17. Ejemplo completo
+## 17. Complete example
 
 ```text
 CLASS Order
@@ -434,11 +434,11 @@ END FUNCTION
 
 ---
 
-## 18. Principios clave
+## 18. Key principles
 
-* Consistencia antes que exhaustividad.
-* Claridad antes que brevedad.
-* Independencia de cualquier lenguaje concreto.
-* Fácil traducción a código real.
+* Consistency over exhaustiveness.
+* Clarity over brevity.
+* Independence from any concrete language.
+* Easy translation to real code.
 
-Esta convención es adecuada para documentación técnica, diseño de sistemas, revisión de lógica y comunicación entre equipos.
+This convention is suitable for technical documentation, system design, logic review and communication between teams.

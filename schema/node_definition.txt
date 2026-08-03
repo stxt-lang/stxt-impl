@@ -1,26 +1,28 @@
-# NodeDefinition: definición de un nodo dentro de un schema.
-# Equivale a una entrada "Node:" del documento schema.
-# Guarda el tipo, los hijos permitidos (ChildDefinition) y, si es ENUM, los valores.
+# NodeDefinition: definition of a node inside a schema. Equivalent to one "Node:"
+# entry of the schema document. It holds the value type, the expected children
+# (ChildDefinition), the optional description and, for ENUM, the allowed values.
 
 CLASS NodeDefinition
 
     FIELD name: STRING
     FIELD normalized_name: STRING
     FIELD type: STRING
+    FIELD description: STRING       # optional description of the node, or NULL
 
-    # Clave = nombre cualificado del hijo (namespace:nombre_canonico)
+    # Key = qualified name of the child (namespace:canonical_name)
     FIELD children: MAP<STRING, ChildDefinition> = {}
 
-    # Valores permitidos para tipo ENUM. Semántica de conjunto: sin duplicados.
+    # Allowed values for the ENUM type. Set semantics: no duplicates.
     FIELD values: STRING[] = []
 
-    CONSTRUCTOR (name, type, line)
+    CONSTRUCTOR (name, type, line, description)
         name            = compactSpaces(name)
         normalized_name = normalizeChars(name)
         type            = type
+        description     = description
 
         IF isEmpty(normalized_name)
-            THROW ParseException(line, "INVALID_NODE_NAME", "Node name not valid: " + name)
+            THROW ValidationException(line, "INVALID_NODE_NAME", "Node name not valid: " + name)
         END IF
     END CONSTRUCTOR
 
@@ -36,6 +38,15 @@ CLASS NodeDefinition
         RETURN type
     END FUNCTION
 
+    FUNCTION getDescription(): STRING
+        RETURN description
+    END FUNCTION
+
+    # Sets the optional description (used by the template "Description >>" block).
+    PROCEDURE setDescription(description: STRING)
+        description = description
+    END PROCEDURE
+
     FUNCTION getChildren(): MAP<STRING, ChildDefinition>
         RETURN children
     END FUNCTION
@@ -43,22 +54,28 @@ CLASS NodeDefinition
     PROCEDURE addChildDefinition(child_definition: ChildDefinition)
         qname: STRING = child_definition.getQualifiedName()
 
-        # No puede haber dos Child equivalentes (mismo nombre canónico + namespace)
+        # Two equivalent Child entries (same canonical name + namespace) are an error
         IF children.containsKey(qname)
-            THROW SchemaException("CHILD_DEF_ALREADY_DEFINED", "Exists a previous node definition with: " + qname)
+            THROW ValidationException(0, "CHILD_DEF_ALREADY_DEFINED", "Exists a previous node definition with: " + qname)
         END IF
 
         children.put(qname, child_definition)
     END PROCEDURE
 
-    # Inserta un valor permitido (ENUM). El conjunto ignora duplicados.
-    PROCEDURE addValue(value: STRING)
-        IF NOT values.contains(value)
-            values.push(value)
+    # Adds an allowed value (ENUM). Duplicated values (after trim) are an error
+    # (STXT-SCHEMA-SPEC §13.9 / STXT-TEMPLATE-SPEC §14.14). Same code as
+    # ChildLineParser: it is the same condition coming through the other entry point.
+    PROCEDURE addValue(value: STRING, line: INTEGER)
+        value = trimToNotNull(value)
+
+        IF values.contains(value)
+            THROW ValidationException(line, "VALUE_DUPLICATED", "The values " + value + " is duplicated")
         END IF
+
+        values.push(value)
     END PROCEDURE
 
-    # true si no hay valores definidos (sin restricción) o si value está permitido
+    # true if no restricted values are defined, or if the value is among the allowed ones
     FUNCTION isAllowedValue(value: STRING): BOOLEAN
         IF values.size() == 0
             RETURN true

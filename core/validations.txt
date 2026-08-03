@@ -1,5 +1,12 @@
-FIELD NAMESPACE_FORMAT: REGEX = "^@?[a-z0-9]+(\\.[a-z0-9]+)+$"
+# Format of a logical namespace (STXT-SPEC §7):
+#   * Lower-case ASCII letters, digits and dot only.
+#   * It may optionally start with '@' (reserved namespaces).
+#   * Two or more domain-style labels separated by '.': label := [a-z0-9]+
+#   * Valid examples: "a.b", "com.example.docs", "@stxt.schema".
+CONSTANT NAMESPACE_FORMAT: REGEX = "^@?[a-z0-9]+(\\.[a-z0-9]+)+$"
 
+# Validates the format of an already lower-cased namespace.
+# An empty or NULL namespace is ignored (nodes without namespace are legal).
 PROCEDURE validateNamespaceFormat(namespace: STRING, line_number: INTEGER)
 
     IF namespace IS NULL OR namespace.isEmpty()

@@ -58,9 +58,14 @@ CLASS TypeRegistry
         RETURN registry[node_type]
     END FUNCTION
 
+    # STXT-SCHEMA-SPEC §9 / STXT-TEMPLATE-SPEC §15: only INLINE and GROUP admit children.
+    FUNCTION admitsChildren(node_type: STRING): BOOLEAN
+        RETURN node_type == "INLINE" OR node_type == "GROUP"
+    END FUNCTION
+
     PROCEDURE register(instance: Type)
         IF registry.containsKey(instance.getName())
-            THROW STXTException("DUPLICATED_TYPE", "Type already defined: " + instance.getName())
+            THROW RuntimeException("DUPLICATED_TYPE", "Type already defined: " + instance.getName())
         END IF
         registry.put(instance.getName(), instance)
     END PROCEDURE

@@ -55,7 +55,7 @@ CLASS SchemaProviderMemory IMPLEMENTS SchemaProvider
         nodes: Node[] = parser.parse(text)
 
         IF nodes.length() != 1
-            THROW SchemaException("INVALID_SCHEMA", "There are " + nodes.length() + ", and expected is 1")
+            THROW ValidationException(0, "INVALID_SCHEMA", "There are " + nodes.length() + ", and expected is 1")
         END IF
 
         node: Node = nodes[0]

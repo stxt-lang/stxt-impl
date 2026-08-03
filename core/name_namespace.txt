@@ -1,5 +1,5 @@
-# NameNamespace: par (nombre, namespace) resultante de interpretar el texto que precede
-# a ':' o '>>' en la línea de un nodo. El namespace se devuelve siempre en minúsculas.
+# NameNamespace: the (name, namespace) pair resulting from interpreting the text that
+# precedes ':' or '>>' in a node line. The namespace is always returned lower-cased.
 
 CLASS NameNamespace
     FIELD name: STRING
@@ -19,16 +19,16 @@ CLASS NameNamespace
     END FUNCTION
 END CLASS
 
-# Separa el nombre del nodo de su namespace opcional entre paréntesis.
+# Splits the node name from its optional namespace in parentheses.
 #
-# Entrada (raw_name): el texto anterior a ':' o '>>', p. ej.:
-#   "Nombre de nodo"
-#   "Nombre de nodo (com.example.docs)"
-#   "Nombre de nodo (@un.namespace.especial)"
+# Input (raw_name): the text before ':' or '>>', e.g.:
+#   "Node name"
+#   "Node name (com.example.docs)"
+#   "Node name (@a.special.namespace)"
 #
-# El formato del namespace (a.b mínimo, ASCII, '@' opcional) NO se valida aquí; se valida
-# más adelante al construir el Node (ver validations.txt / node.txt). Aquí sólo se separan
-# las dos partes y se normaliza el namespace a minúsculas.
+# The FORMAT of the namespace ('a.b' minimum, ASCII, optional '@') is NOT validated
+# here; it is validated later when the Node is built (see validations.txt / node.txt).
+# This function only splits the two parts and lower-cases the namespace.
 FUNCTION parse(raw_name: STRING, inherited_namespace: STRING, line_number: INTEGER, full_line: STRING): NameNamespace
 
     IF raw_name IS NULL
@@ -42,32 +42,35 @@ FUNCTION parse(raw_name: STRING, inherited_namespace: STRING, line_number: INTEG
 
     name: STRING = NULL
 
-    # Namespace por defecto: el heredado del padre, o vacío si no hay
+    # Default namespace: the one inherited from the parent, or empty if there is none
     namespace: STRING = inherited_namespace
     IF namespace IS NULL
         namespace = EMPTY_NAMESPACE
     END IF
 
     IF index_open != -1 AND index_close != -1
-        # Hay paréntesis: el '(' debe ir antes del ')' y ')' debe ser el último carácter
+        # Parentheses present: '(' must come before ')' and ')' must be the last character
         IF index_open > index_close OR index_close != raw_name.length() - 1
             THROW ParseException(line_number, "INVALID_NAMESPACE", "Line not valid: " + full_line)
         END IF
 
         name = raw_name.substring(0, index_open).trim()
-        namespace = raw_name.substring(index_open + 1, index_close).trim()
 
-        # El namespace vacío "()" no está permitido
+        # NO trim here: the grammar (STXT-SPEC §7 / §16) does not allow spaces inside '( )',
+        # so "( com.example )" must fail the namespace format validation later.
+        namespace = raw_name.substring(index_open + 1, index_close)
+
+        # The empty namespace "()" is not allowed
         IF namespace.isEmpty()
             THROW ParseException(line_number, "INVALID_NAMESPACE", "Line not valid: " + full_line)
         END IF
 
     ELSE IF index_open == -1 AND index_close == -1
-        # Sin paréntesis: todo el texto es el nombre; se mantiene el namespace heredado
+        # No parentheses: the whole text is the name; the inherited namespace stands
         name = raw_name
 
     ELSE
-        # Sólo un paréntesis (abre sin cerrar o cierra sin abrir): inválido
+        # A single parenthesis (open without close or close without open): invalid
         THROW ParseException(line_number, "INVALID_NAMESPACE", "Line not valid: " + full_line)
     END IF
 

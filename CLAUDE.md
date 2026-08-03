@@ -1,222 +1,256 @@
 # CLAUDE.md — stxt-impl
 
-## Qué es este repositorio
+## What this repository is
 
-Descripción en **pseudocódigo neutro de lenguaje** de la implementación de STXT (Semantic Text).
-Es el plano ("blueprint") para portar STXT a nuevas plataformas: un implementador debe poder
-escribir un port conforme leyendo únicamente este repositorio y la especificación, sin leer
-TypeScript ni Java.
+A **language-neutral pseudocode** description of the STXT (Semantic Text)
+implementation. It is the blueprint for porting STXT to new platforms: an implementer
+must be able to write a conformant port reading only this repository and the
+specification, without reading TypeScript or Java.
 
-La guía de estilo del pseudolenguaje está en [README.md](README.md) (keywords, tipos,
-convenciones de nombres). Todo fichero `.txt` de este repo la sigue.
+The pseudo-language style guide lives in [README.md](README.md) (keywords, types,
+naming conventions). Every `.txt` file in this repo follows it.
 
-## Ecosistema STXT
+## The STXT ecosystem
 
-Repos hermanos en `C:\desarrollo\workspace_java` (org GitHub `stxt-lang`, web https://stxt.dev):
+Sibling repos under `C:\desarrollo\workspace_java` (GitHub org `stxt-lang`, web https://stxt.dev):
 
-| Repo | Rol |
+| Repo | Role |
 |---|---|
-| `../stxt-web` | **Especificación normativa**, escrita en el propio STXT. Canónico en `es/`: `stxt-core-ref.stxt`, `stxt-schema-ref.stxt`, `stxt-template-ref.stxt`, `stxt-discovery-ref.stxt`. Espejo en `en/`. Sin números de versión: se rastrea con `Last modif`. También contiene el corpus de ejemplos que usan las suites de conformidad de js y java. |
-| `../stxt-js` | Implementación oficial. npm `@stxt-lang/core` (TypeScript). Su `CLAUDE.md` documenta la arquitectura. |
-| `../stxt-java` | Port Java con paridad deliberada con js (mismos códigos de error, versiones alineadas). Maven Central `dev.stxt:stxt-core`. |
-| `stxt-impl` (este) | Pseudocódigo agnóstico de la implementación. |
-| Otros | `../stxt-vscode` (extensión), `stxt-cli`, `../stxt-python` (esqueleto, primer candidato a usar este blueprint), `../stxt-cms`. |
+| `../stxt-web` | **Normative specification**, written in STXT itself. Canonical in `es/`: `stxt-core-ref.stxt`, `stxt-schema-ref.stxt`, `stxt-template-ref.stxt`, `stxt-discovery-ref.stxt`. English mirror in `en/`. No version numbers: tracked via `Last modif`. Also holds the example corpus used by the js and java conformance suites. |
+| `../stxt-js` | Official implementation. npm `@stxt-lang/core` (TypeScript). Its `CLAUDE.md` documents the architecture. |
+| `../stxt-java` | Java port with deliberate parity with js (same error codes, aligned versions). Maven Central `dev.stxt:stxt-core`. |
+| `stxt-impl` (this one) | Language-neutral pseudocode of the implementation. |
+| Others | `../stxt-vscode` (extension), `stxt-cli`, `../stxt-python` (skeleton, first candidate to use this blueprint), `../stxt-cms`. |
 
-**Orden de autoridad ante ambigüedades (objetivo):**
-
-```
-spec (stxt-web)  →  stxt-impl (este repo)  →  stxt-js  →  stxt-java
-```
-
-Hoy el orden vigente es spec → js → java; este repo entrará en segunda posición **cuando esté
-completo y correcto**. En ese momento se actualizarán los CLAUDE.md de los otros repos y la
-spec para reflejarlo. Hasta entonces, no anunciar ese estatus fuera de aquí.
-
-## Alcance normativo (decisión cerrada, 2026-08-03)
-
-La frontera es **"semántica del lenguaje"**, no "lo que hace stxt-js".
-
-**Dentro (este repo lo describe y es normativo):**
-
-- `core/` — parser sintáctico, nodos, indentación, nombres y namespaces.
-- `schema/` — validación semántica, tipos, providers de schema.
-- `template/` — compilación de `@stxt.template` a schema.
-- `discovery/` — resolución de definiciones en filesystem (STXT-DISCOVERY-SPEC).
-  ✅ Escrito (2026-08-03).
-- **NodeWriter** (serializador) — el round-trip (escribir y reparsear produce el mismo árbol) es
-  una propiedad semántica del lenguaje. **Pendiente de escribir.**
-- **Interfaces `Observer` y `Validator`** con sus puntos de enganche al parser — definen *cuándo*
-  se procesa/valida un nodo (validación en streaming al cerrar cada nodo), que es comportamiento
-  observable. ✅ Escritas en `processors/` (2026-08-03).
-
-**Fuera (libertad de diseño de cada port):**
-
-- Fachadas de conveniencia (`STXT.parser()`...), `UnifiedSchemaProvider`, caches y cargadores de
-  recursos (`SchemaProviderCache`/`ResourcesLoader`, patrón de stxt-java), adaptadores concretos
-  de filesystem/entorno (Node `fs`, `vscode.workspace.fs`...).
-- Como mucho, una nota de una línea: "cada implementación puede ofrecer una fachada idiomática".
-
-## Decisiones semánticas resueltas (confirmadas por Joan, 2026-08-03)
-
-1. **Nombre canónico: conserva acentos, pasa a minúsculas.**
-   `Año == año`, y ambos son **distintos** de `ano`/`ANO` (que son iguales entre sí).
-   Es el modelo IDN de STXT-SPEC §4.3: trim → NFC → minúsculas (case folding) → toda secuencia
-   de separadores (`-`, `_`, espacios) pasa a un solo `-` → sin `-` en los extremos.
-   ✅ Corregido en [core/string_utils.txt](core/string_utils.txt) (2026-08-03; antes describía
-   NFKD + eliminación de diacríticos, que era incorrecto).
-
-2. **Hijos: se valida siempre la cardinalidad (min/max); el orden de aparición NO se valida.**
-   El enfoque actual de [schema/schema_validator.txt](schema/schema_validator.txt)
-   (contar apariciones, independiente del orden) es **correcto**; no tocar.
-
-## Estado actual y trabajo pendiente
-
-Análisis hecho el 2026-08-03 comparando contra las specs (`Last modif: 2026-08-02`) y
-stxt-js 0.6.0 (npm, 2026-08-02).
-
-**Hecho (2026-08-03):**
-
-1. ✅ **`normalizeChars`** corregido según la decisión semántica 1
-   ([core/string_utils.txt](core/string_utils.txt), traducido a inglés; se eliminó `cleanSpaces`,
-   que ya no tiene consumidores tras el cambio de los tipos binarios).
-2. ✅ **Regla tab/espacio** ([core/line_indent.txt](core/line_indent.txt), traducido): mezclar tab
-   y espacios en la indentación de una misma línea → `MIXED_INDENTATION` (STXT-SPEC §8.1/§8.3).
-   Matices de la spec: comentarios y líneas vacías nunca dan error de indentación (§11); dentro de
-   un bloque `>>` el chequeo aplica al prefijo que cubre el nivel de bloque y las líneas vacías
-   están exentas (§10.2 regla 1, §10.3).
-3. ✅ **Tipos** ([schema/types.txt](schema/types.txt), traducido): registrados los 18 de la spec.
-   Añadidos TIME, UUID, BINARY, MARKDOWN. Además, correcciones de paridad con spec/js detectadas
-   al comparar: `RegexValue` (y ENUM, INLINE, URL) ahora rechazan la forma bloque con
-   `NOT_ALLOWED_TEXT` usando `isTextNode()`; BLOCK exige forma bloque con el código
-   `BLOCK_FORM_REQUIRED`; los tipos binarios (HEXADECIMAL, BINARY, BASE64) validan sobre
-   `binaryValue(node)` (§9.5: en bloque, concatenación de líneas con trim por línea — el
-   whitespace interior NO se ignora); HEXADECIMAL ya no admite prefijo `#` ni exige longitud par.
-
-4. ✅ **`ParseResult` / modo acumulador de errores** (2026-08-03): nuevo
-   [core/parse_result.txt](core/parse_result.txt); [core/parser.txt](core/parser.txt) reescrito
-   como clase `Parser` con `parse()` (fail-fast, delega en `parseResult()` y lanza el primer
-   error) y `parseResult()` (acumula errores sintácticos y de validación por línea con
-   `TRY/CATCH`; los errores inesperados se recogen como `UNEXPECTED_ERROR` /
-   `VALIDATION_ERROR`). Detalle de la spec §10.3: el salto de línea final termina la última
-   línea, no crea una línea vacía espuria en un bloque `>>` a fin de fichero.
-5. ✅ **Contratos `Observer` / `Validator`** (2026-08-03): nuevos
-   [processors/observer.txt](processors/observer.txt) (`onCreate`, `onFinish`, `onComment`,
-   `onTextLine`) y [processors/validator.txt](processors/validator.txt) (`validate(node)`
-   **devuelve** `ValidationException[]`, no lanza). Cambios arrastrados por el contrato y por
-   paridad con spec/js:
-   - [core/line_indent.txt](core/line_indent.txt): `LineIndent` ahora lleva `is_comment`,
-     `is_block` e `indent_length`; `parseLine` ya no devuelve NULL (el parser decide con los
-     flags, necesario para notificar comentarios y líneas de texto a los observers).
-   - [core/node.txt](core/node.txt) [EN]: validación de caracteres del nombre (`VALID_NAME`,
-     STXT-SPEC §4.2/§11.8, letras y dígitos Unicode + `-`, `_`, espacio); `getChild`/`getChildren`
-     filtran también por namespace (por defecto el del propio nodo); `AMBIGUOUS_CHILD`
-     (antes `MORE_THAN_ONE_CHILD`); **eliminado `freeze()`** — ni js ni java congelan nodos
-     (inmutabilidad por convención: mutable durante el parseo, solo lectura después).
-   - [schema/schema_validator.txt](schema/schema_validator.txt) [EN]: reescrito al contrato
-     acumulador; añadido **`validateChildrenDeclared`** (modelo de contenido cerrado,
-     STXT-SCHEMA-SPEC §6, código `CHILD_NOT_DECLARED` en la línea del hijo — antes faltaba);
-     máximo excedido → error en el padre y además en cada hijo sobrante.
-   - [core/platform.txt](core/platform.txt) [EN]: añadido `splitLines`; eliminados `freezeArray`
-     e `isHexDigit` (sin consumidores). [core/constants.txt](core/constants.txt): añadido
-     `SEP_TEXT_NODE = ">>"`.
-   - README.md: nueva sección 15 (Excepciones: `THROW`, `TRY`/`CATCH` tipado) y `pushAll` en
-     los métodos de array (secciones posteriores renumeradas).
-
-6. ✅ **Providers de schema/template** (2026-08-03):
-   [schema/schema_provider.txt](schema/schema_provider.txt) y
-   [template/template_schema_provider.txt](template/template_schema_provider.txt) reescritos [EN].
-   - **Contrato decidido**: `getSchema(namespace)` devuelve **NULL** si el provider no tiene
-     schema para ese namespace; los providers NO lanzan "not found" — es el consumidor
-     (`SchemaValidator`) quien emite `SCHEMA_NOT_FOUND`. Esto es más limpio que js, donde los
-     providers Meta lanzan `RESOURCE_NOT_FOUND` para otros namespaces (con el efecto raro de que
-     `SchemaProviderMemory`→Meta lanza en vez de devolver null). ⚠️ Divergencia deliberada del
-     blueprint respecto a js/java: alinearlos upstream cuando toque.
-   - Estructura alineada con js: **`SchemaProviderMemory`** (mapa + fallback a un provider padre,
-     por defecto el meta; `addSchema(text)` parsea → valida contra el meta → registra) y
-     **`TemplateSchemaProviderMemory`** (hereda de Memory, `addTemplate`). **Eliminados**
-     `SchemaProviderCache`, `SchemaProviderResources` y `ResourcesLoader` (patrón de stxt-java,
-     ergonomía de plataforma, fuera del alcance normativo).
-   - Los `META_TEXT` ya no son placeholders: el meta-schema (§15.2, con los 18 valores de Type)
-     y el meta-template (§16) están embebidos íntegros en comentario.
-   - 🐞 **Bug detectado en stxt-js** al comparar: `SchemaProviderMemory.addSchema` y
-     `TemplateSchemaProviderMemory.addTemplate` descartan el array devuelto por
-     `validator.validate(node)` → registran definiciones inválidas en silencio (residuo del
-     cambio de contrato de Validator; `DiscoveryResolver.compile` sí lo comprueba). El blueprint
-     lo describe correcto (si hay errores, lanzar el primero). Avisado para corregir en stxt-js.
-7. ✅ **`discovery/`** (2026-08-03): módulo nuevo completo según STXT-DISCOVERY-SPEC, espejo de
-   `src/discovery/` de stxt-js [EN]: [discovery_file_system.txt](discovery/discovery_file_system.txt)
-   y [discovery_environment.txt](discovery/discovery_environment.txt) (abstracciones inyectadas;
-   la distinción NULL vs vacío de `STXT_PATH` es normativa §6),
-   [discovery_error.txt](discovery/discovery_error.txt) (errores `DISCOVERY_*` coleccionados,
-   nunca lanzados, §8), [discovery_result.txt](discovery/discovery_result.txt) (niveles +
-   definición activa por namespace con procedencia; implementa `SchemaProvider` y sirve los dos
-   meta-schemas) y [discovery_resolver.txt](discovery/discovery_resolver.txt) (cadena §4/§6 con
-   ascenso limitado `max_ascent=32`, deduplicación usuario/sistema, caché por nivel §7, ficheros
-   ordenados por path, duplicados por nivel §8.1 sin elegir ganador — el namespace queda sin
-   definición activa mientras dure el conflicto).
-
-**Pendiente, en orden recomendado:**
-
-8. **`NodeWriter`**: serialización a STXT con estilo de indentación (tabs | 4 espacios) y garantía
-   de round-trip.
-9. **Traducción al inglés**: el repo debe quedar íntegramente en inglés — README.md (guía de
-   estilo) y todos los comentarios de los ficheros `.txt` (hoy mezclan español e inglés).
-   Estrategia: los ficheros que se toquen se traducen al revisarlos; al final, pasada de barrido
-   sobre los que no se hayan tocado, README.md y este CLAUDE.md.
-10. **Trazabilidad**: referencias a secciones de la spec en cada fichero (ya hay alguna, estilo
-    "STXT-SCHEMA-SPEC §9.1") y una tabla fichero ↔ clase stxt-js ↔ clase stxt-java.
-11. **Oficialización** (al final, cuando todo lo anterior esté bien): mencionar stxt-impl desde
-    stxt-web y los CLAUDE.md de js/java; valorar adoptar el versionado común (js va por 0.6.0)
-    para que "misma versión = mismo comportamiento" incluya el pseudocódigo.
-
-## Estructura actual
+**Authority order for ambiguities (target):**
 
 ```
-README.md                       Guía de estilo del pseudolenguaje (§15: excepciones TRY/CATCH)
+spec (stxt-web)  →  stxt-impl (this repo)  →  stxt-js  →  stxt-java
+```
+
+The current order in force is spec → js → java; this repo will enter second position
+**once it is complete and correct**. At that point the CLAUDE.md of the other repos and
+the spec will be updated to reflect it. Until then, do not announce that status
+anywhere else.
+
+## Normative scope (decision closed, 2026-08-03)
+
+The boundary is **"language semantics"**, not "whatever stxt-js does".
+
+**In (this repo describes it and it is normative):**
+
+- `core/` — syntactic parser, nodes, indentation, names and namespaces, `NodeWriter`.
+- `exceptions/` — the exception hierarchy and its error-code discipline.
+- `processors/` — the `Observer` and `Validator` contracts and their hook points into
+  the parser (they define *when* a node is processed/validated — streaming validation
+  when each node closes — which is observable behavior).
+- `schema/` — semantic validation, types, schema providers.
+- `template/` — compilation of `@stxt.template` into a schema.
+- `discovery/` — definition resolution on the filesystem (STXT-DISCOVERY-SPEC).
+- **NodeWriter** — round-trip (write + re-parse yields the same tree) is a semantic
+  property of the language.
+
+**Out (design freedom of each port):**
+
+- Convenience facades (`STXT.parser()`...), `UnifiedSchemaProvider`, caches and
+  resource loaders (`SchemaProviderCache`/`ResourcesLoader`, the stxt-java pattern),
+  concrete filesystem/environment adapters (Node `fs`, `vscode.workspace.fs`...).
+- At most a one-line note: "each implementation may offer an idiomatic facade".
+
+## Resolved semantic decisions (confirmed by Joan, 2026-08-03)
+
+1. **Canonical name: keeps accents, lower-cases.**
+   `Año == año`, and both are **different** from `ano`/`ANO` (which equal each other).
+   It is the IDN model of STXT-SPEC §4.3: trim → NFC → lowercase (case folding) →
+   every run of separators (`-`, `_`, spaces) becomes a single `-` → no leading or
+   trailing `-`. Fixed in [core/string_utils.txt](core/string_utils.txt) (2026-08-03;
+   it previously described NFKD + diacritic stripping, which was wrong).
+
+2. **Children: cardinality (min/max) is always validated; the order of appearance is
+   NOT validated.** The approach of
+   [schema/schema_validator.txt](schema/schema_validator.txt) (counting occurrences,
+   order independent) is correct.
+
+3. **`SchemaProvider.getSchema` contract: returns NULL when the provider has no schema
+   for that namespace; providers never throw "not found"** — the consumer
+   (`SchemaValidator`) reports `SCHEMA_NOT_FOUND`. Deliberate divergence of the
+   blueprint from js/java, where the Meta providers throw `RESOURCE_NOT_FOUND` for
+   other namespaces: align them upstream when the time comes.
+
+## Work log (all against the specs at `Last modif: 2026-08-02` and stxt-js 0.6.0)
+
+1. ✅ **`normalizeChars`** fixed per semantic decision 1
+   ([core/string_utils.txt](core/string_utils.txt); `cleanSpaces` removed — no
+   consumers left after the binary types change).
+2. ✅ **Tab/space rule** ([core/line_indent.txt](core/line_indent.txt)): mixing tabs
+   and spaces in the indentation of a single line → `MIXED_INDENTATION` (STXT-SPEC
+   §8.1/§8.3). Spec nuances: comments and empty lines never produce indentation errors
+   (§11); inside a `>>` block the check applies to the prefix covering the block level
+   and empty lines are exempt (§10.2 rule 1, §10.3).
+3. ✅ **Types** ([schema/types.txt](schema/types.txt)): all 18 spec types registered.
+   Added TIME, UUID, BINARY, MARKDOWN. Parity fixes found while comparing:
+   `RegexValue` (and ENUM, INLINE, URL) reject the block form with `NOT_ALLOWED_TEXT`
+   via `isTextNode()`; BLOCK requires the block form with code `BLOCK_FORM_REQUIRED`;
+   the binary types (HEXADECIMAL, BINARY, BASE64) validate over `binaryValue(node)`
+   (§9.5: in block form, concatenation of per-line-trimmed lines — inner whitespace is
+   NOT ignored); HEXADECIMAL no longer takes a `#` prefix nor requires even length.
+   Later addition: `TypeRegistry.admitsChildren()` (only INLINE and GROUP).
+4. ✅ **`ParseResult` / multi-error mode**: new
+   [core/parse_result.txt](core/parse_result.txt); [core/parser.txt](core/parser.txt)
+   rewritten as a `Parser` class with `parse()` (fail-fast, delegates to
+   `parseResult()` and throws the first error) and `parseResult()` (collects syntax
+   and validation errors per line with `TRY/CATCH`; unexpected errors are collected as
+   `UNEXPECTED_ERROR` / `VALIDATION_ERROR`). Spec detail §10.3: the final line break
+   terminates the last line — it does not create a spurious empty line in a `>>` block
+   at EOF.
+5. ✅ **`Observer` / `Validator` contracts**: new
+   [processors/observer.txt](processors/observer.txt) (`onCreate`, `onFinish`,
+   `onComment`, `onTextLine`) and [processors/validator.txt](processors/validator.txt)
+   (`validate(node)` **returns** `ValidationException[]`, it does not throw). Dragged
+   by the contract and by spec/js parity:
+   - [core/line_indent.txt](core/line_indent.txt): `LineIndent` now carries
+     `is_comment`, `is_block` and `indent_length`; `parseLine` no longer returns NULL
+     (the parser decides using the flags — needed to notify comments and text lines).
+   - [core/node.txt](core/node.txt): name character validation (`VALID_NAME`,
+     STXT-SPEC §4.2/§11.8, Unicode letters and digits plus `-`, `_`, space);
+     `getChild`/`getChildren` also filter by namespace (defaulting to the node's own);
+     `AMBIGUOUS_CHILD` (formerly `MORE_THAN_ONE_CHILD`); **`freeze()` removed** —
+     neither js nor java freeze nodes (immutability by convention: mutable while
+     parsing, read-only afterwards).
+   - [schema/schema_validator.txt](schema/schema_validator.txt): rewritten to the
+     collecting contract; added **`validateChildrenDeclared`** (closed content model,
+     STXT-SCHEMA-SPEC §6, code `CHILD_NOT_DECLARED` on the child's line — previously
+     missing); max exceeded → error on the parent plus one on each offending child.
+   - [core/platform.txt](core/platform.txt): added `splitLines`;
+     [core/constants.txt](core/constants.txt): added `SEP_TEXT_NODE = ">>"`.
+   - README.md: exceptions section (`THROW`, typed `TRY`/`CATCH`) and array methods
+     `pushAll`/`contains`.
+6. ✅ **Schema/template providers**:
+   [schema/schema_provider.txt](schema/schema_provider.txt) and
+   [template/template_schema_provider.txt](template/template_schema_provider.txt)
+   rewritten. NULL contract (semantic decision 3). Structure aligned with js:
+   **`SchemaProviderMemory`** (map + fallback to a parent provider, the meta by
+   default; `addSchema(text)` parses → validates against the meta → registers) and
+   **`TemplateSchemaProviderMemory`** (extends Memory, `addTemplate`). **Removed**
+   `SchemaProviderCache`, `SchemaProviderResources` and `ResourcesLoader` (stxt-java
+   pattern, platform ergonomics, outside the normative scope). The `META_TEXT`
+   placeholders are gone: the meta-schema (§15.2, with the 18 Type values) and the
+   meta-template (§16) are embedded in full.
+   🐞 **Bug spotted in stxt-js** while comparing: `SchemaProviderMemory.addSchema` and
+   `TemplateSchemaProviderMemory.addTemplate` discard the array returned by
+   `validator.validate(node)` → they silently register invalid definitions (leftover
+   of the Validator contract change; `DiscoveryResolver.compile` does check it). The
+   blueprint describes it correctly (throw the first error if any). Flagged for fixing
+   in stxt-js.
+7. ✅ **`discovery/`**: complete new module per STXT-DISCOVERY-SPEC, mirroring
+   `src/discovery/` of stxt-js:
+   [discovery_file_system.txt](discovery/discovery_file_system.txt) and
+   [discovery_environment.txt](discovery/discovery_environment.txt) (injected
+   abstractions; the NULL vs empty distinction of `STXT_PATH` is normative §6),
+   [discovery_error.txt](discovery/discovery_error.txt) (`DISCOVERY_*` errors
+   collected, never thrown, §8), [discovery_result.txt](discovery/discovery_result.txt)
+   (levels + active definition per namespace with provenance; implements
+   `SchemaProvider` and serves the two meta-schemas) and
+   [discovery_resolver.txt](discovery/discovery_resolver.txt) (§4/§6 chain with
+   bounded ascent `max_ascent=32`, user/system deduplication, per-level cache §7,
+   files sorted by path, same-level duplicates §8.1 without picking a winner — the
+   namespace has no active definition while the conflict lasts).
+8. ✅ **`NodeWriter`** (2026-08-03): [core/node_writer.txt](core/node_writer.txt) —
+   `toSTXT(node, style)` / `toSTXTDocs(docs, style)` with `INDENT_TABS` /
+   `INDENT_SPACES_4`, round-trip guarantee stated, namespace written only where it is
+   not inherited (js/java host this class in their `runtime` package).
+9. ✅ **English translation sweep** (2026-08-03): every `.txt`, README.md and this
+   CLAUDE.md are now in English. Parity fixes found during the sweep:
+   - [core/name_namespace.txt](core/name_namespace.txt): the namespace inside `( )` is
+     NOT trimmed (the grammar §7/§16 does not allow spaces there; `( com.example )`
+     must fail the later format validation).
+   - [exceptions/exceptions.txt](exceptions/exceptions.txt) (new): the hierarchy is
+     exactly `ParseException(line, code, message)`, `ValidationException EXTENDS
+     ParseException` and `RuntimeException(code, message)`; `SchemaException` and
+     `STXTException` no longer exist (js model). `withLine()` defined for shifting
+     re-parsed-block errors.
+   - [schema/schema.txt](schema/schema.txt) / [node_definition.txt](schema/node_definition.txt):
+     optional `description` support; `addValue` now throws `VALUE_DUPLICATED`
+     (§13.9/§14.14 — duplicates were silently ignored before); definition clashes are
+     `ValidationException`.
+   - [schema/schema_parser.txt](schema/schema_parser.txt): schema/node `Description`
+     support; `CHILDREN_NOT_ALLOWED_FOR_TYPE` (§13.5) via
+     `TypeRegistry.admitsChildren`; `MIN_GREATER_THAN_MAX` (§10/§13.7).
+   - [template/child_line_parser.txt](template/child_line_parser.txt): cardinalities
+     are non-negative integers (`isNatural`); `MIN_GREATER_THAN_MAX` (§7.1); empty
+     brackets `[]` count as an EXPLICIT empty values definition (non-NULL) — before,
+     an empty list collapsed to NULL; exceptions are `ValidationException`.
+   - [template/template_parser.txt](template/template_parser.txt): rewritten to js
+     parity — errors of the re-parsed `Structure >>` block are re-thrown with
+     `withLine(+offset)` preserving the subtype; external-namespace nodes may declare
+     cardinality only (`TYPE_DEFINITION_NOT_ALLOWED`,
+     `VALUES_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE`,
+     `CHILDREN_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE`); reference rules §14.11-14.13
+     (`REFERENCE_NOT_FOUND`, `REFERENCE_WITH_TYPE_NOT_ALLOWED`,
+     `NODE_REFERENCE_NOT_VALID`, `VALUES_NOT_ALLOWED_IN_REFERENCE`,
+     `CHILDREN_NOT_ALLOWED_IN_REFERENCE`); `TYPE_NOT_VALID` and
+     `CHILDREN_NOT_ALLOWED_FOR_TYPE` (§14.9); the `Description >>` block (§12) with
+     `addDescriptions` and its error codes.
+   - [core/platform.txt](core/platform.txt): `isNatural` added; `isValidMinMax`
+     removed (no consumers).
+
+## Pending, in recommended order
+
+10. **Traceability**: spec section references in every file (mostly present, style
+    "STXT-SCHEMA-SPEC §9.1") and a table file ↔ stxt-js class ↔ stxt-java class.
+11. **Officialization** (last, once everything above is right): mention stxt-impl from
+    stxt-web and the CLAUDE.md of js/java; consider adopting the shared versioning
+    (js is at 0.6.0) so that "same version = same behavior" includes the pseudocode.
+
+## Current structure
+
+```
+README.md                       Pseudocode style guide (§15: TRY/CATCH exceptions)
 core/
-  constants.txt                 COMMENT_CHAR, TAB_SPACES=4, SEP_NODE, SEP_TEXT_NODE... [EN]
-  line_indent.txt               parseLine: línea → LineIndent (flags is_comment/is_block; MIXED_INDENTATION) [EN]
-  name_namespace.txt            NameNamespaceParser: "Nombre (ns)" → (name, namespace)
-  node.txt                      Clase Node (VALID_NAME §4.2; mutable al parsear, luego solo lectura) [EN]
-  parse_result.txt              ParseResult: nodos raíz + errores acumulados [EN]
-  parser.txt                    Clase Parser: parse()/parseResult(), hooks, pila por niveles [EN]
-  platform.txt                  Funciones dependientes de plataforma (declaradas, sin cuerpo) [EN]
-  string_utils.txt              Utilidades de cadena (normalizeChars = nombre canónico §4.3) [EN]
-  validations.txt               validateNamespaceFormat
+  constants.txt                 COMMENT_CHAR, TAB_SPACES=4, SEP_NODE, SEP_TEXT_NODE...
+  line_indent.txt               parseLine: line → LineIndent (is_comment/is_block flags; MIXED_INDENTATION)
+  name_namespace.txt            NameNamespaceParser: "Name (ns)" → (name, namespace)
+  node.txt                      Node class (VALID_NAME §4.2; mutable while parsing, then read-only)
+  node_writer.txt               NodeWriter: toSTXT/toSTXTDocs, round-trip guarantee
+  parse_result.txt              ParseResult: root nodes + collected errors
+  parser.txt                    Parser class: parse()/parseResult(), hooks, level stack
+  platform.txt                  Platform-dependent functions (declared, no body)
+  string_utils.txt              String utilities (normalizeChars = canonical name §4.3)
+  validations.txt               validateNamespaceFormat (§7)
+exceptions/
+  exceptions.txt                ParseException / ValidationException / RuntimeException
 processors/
-  observer.txt                  INTERFACE Observer: onCreate/onFinish/onComment/onTextLine [EN]
-  validator.txt                 INTERFACE Validator: validate(node) → ValidationException[] [EN]
+  observer.txt                  INTERFACE Observer: onCreate/onFinish/onComment/onTextLine
+  validator.txt                 INTERFACE Validator: validate(node) → ValidationException[]
 discovery/
-  discovery_file_system.txt     INTERFACE DiscoveryFileSystem + DiscoveryEntry (FS inyectado) [EN]
-  discovery_environment.txt     INTERFACE DiscoveryEnvironment: STXT_PATH, user/system dirs [EN]
-  discovery_error.txt           DiscoveryError: códigos DISCOVERY_* coleccionados (§8) [EN]
-  discovery_result.txt          DiscoveryDefinition/Level/Result (SchemaProvider + procedencia) [EN]
-  discovery_resolver.txt        DiscoveryResolver: cadena, carga por niveles, precedencia [EN]
+  discovery_file_system.txt     INTERFACE DiscoveryFileSystem + DiscoveryEntry (injected FS)
+  discovery_environment.txt     INTERFACE DiscoveryEnvironment: STXT_PATH, user/system dirs
+  discovery_error.txt           DiscoveryError: DISCOVERY_* codes, collected (§8)
+  discovery_result.txt          DiscoveryDefinition/Level/Result (SchemaProvider + provenance)
+  discovery_resolver.txt        DiscoveryResolver: chain, per-level loading, precedence
 schema/
-  schema.txt                    Schema: namespace + NodeDefinitions
-  node_definition.txt           NodeDefinition: tipo, hijos, valores ENUM
-  child_definition.txt          ChildDefinition: cardinalidad min/max
-  schema_parser.txt             Documento @stxt.schema → Schema
-  schema_provider.txt           SchemaProvider (NULL = not found) + Memory + Meta (bootstrap §15.2) [EN]
-  schema_validator.txt          Valida nodo contra schema (tipo + modelo cerrado + cardinalidades, sin orden) [EN]
-  types.txt                     TypeRegistry + los 18 tipos de la spec + binaryValue (§9.5) [EN]
+  schema.txt                    Schema: namespace + description + NodeDefinitions
+  node_definition.txt           NodeDefinition: type, children, description, ENUM values
+  child_definition.txt          ChildDefinition: min/max cardinality
+  schema_parser.txt             @stxt.schema document → Schema
+  schema_provider.txt           SchemaProvider (NULL = not found) + Memory + Meta (bootstrap §15.2)
+  schema_validator.txt          Node vs schema (type + closed model + cardinalities, no order)
+  types.txt                     TypeRegistry (admitsChildren) + the 18 spec types + binaryValue (§9.5)
 template/
-  template_parser.txt           Documento @stxt.template → Schema
-  child_line.txt                ChildLine: (cardinalidad) TIPO [valores]
-  child_line_parser.txt         Parser del RuleSpec de Structure >>
-  template_schema_provider.txt  TemplateSchemaProviderMemory + meta-template (§16) [EN]
+  template_parser.txt           @stxt.template document → Schema (references, Description block)
+  child_line.txt                ChildLine: (cardinality) TYPE [values]
+  child_line_parser.txt         RuleSpec parser for Structure >> lines
+  template_schema_provider.txt  TemplateSchemaProviderMemory + meta-template (§16)
 ```
 
-`[EN]` = fichero ya traducido íntegramente al inglés (punto 8 del trabajo pendiente).
+## Repo conventions
 
-## Convenciones del repo
-
-- Ficheros de pseudocódigo en `.txt`, siguiendo estrictamente la guía de [README.md](README.md)
-  (keywords en MAYÚSCULAS inglés, variables snake_case, comentarios `#`).
-- **Idiomas**: la conversación con Joan es siempre en español (de España), pero **todo el
-  contenido del repositorio debe estar en inglés**: README.md, comentarios de los `.txt`,
-  identificadores, mensajes de error y este CLAUDE.md (se traduce en la pasada final, punto 8
-  del trabajo pendiente). Hoy los comentarios mezclan español e inglés: al tocar un fichero,
-  dejarlo en inglés.
-- Códigos de error en MAYÚSCULAS, idénticos a los de stxt-js/stxt-java.
-- Commits: mensajes cortos; `M+` es la convención local para cambios menores.
+- Pseudocode files in `.txt`, strictly following the [README.md](README.md) guide
+  (UPPERCASE English keywords, snake_case variables, `#` comments).
+- **Languages**: conversation with Joan is always in Spanish (from Spain), but **all
+  repository content is in English**: README.md, `.txt` comments, identifiers, error
+  messages and this CLAUDE.md.
+- UPPERCASE error codes, identical to those of stxt-js/stxt-java.
+- Commits: short messages; `M+` is the local convention for minor changes. Joan makes
+  every commit and push himself — never run `git commit`/`git push`; leave changes in
+  the working tree for his review.

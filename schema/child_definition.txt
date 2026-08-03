@@ -1,14 +1,14 @@
-# ChildDefinition: declaración de un hijo permitido dentro de un Node ("Child:").
-# Define el par lógico (nombre canónico + namespace efectivo) y la cardinalidad (min/max).
-# min y max son opcionales: NULL significa "sin límite establecido".
+# ChildDefinition: declaration of an expected child inside a Node ("Child:").
+# It defines the logical pair (canonical name + effective namespace) and the min/max
+# cardinality. min and max are optional: NULL means "no limit set".
 
 CLASS ChildDefinition
 
     FIELD name: STRING
     FIELD normalized_name: STRING
     FIELD namespace: STRING
-    FIELD min: INTEGER          # NULL = sin mínimo (efectivo 0)
-    FIELD max: INTEGER          # NULL = sin máximo (ilimitado)
+    FIELD min: INTEGER          # NULL = no minimum (effectively 0)
+    FIELD max: INTEGER          # NULL = no maximum (unbounded)
 
     CONSTRUCTOR (name, namespace, min, max, line)
         name            = compactSpaces(name)
@@ -17,11 +17,11 @@ CLASS ChildDefinition
         min             = min
         max             = max
 
-        # El namespace del hijo (heredado o explícito) DEBE ser válido
+        # The namespace of the child (inherited or explicit) MUST be valid
         validateNamespaceFormat(namespace, line)
 
         IF isEmpty(normalized_name)
-            THROW ParseException(line, "INVALID_NODE_NAME", "Node name not valid: " + name)
+            THROW ValidationException(line, "INVALID_NODE_NAME", "Node name not valid: " + name)
         END IF
     END CONSTRUCTOR
 
@@ -45,7 +45,8 @@ CLASS ChildDefinition
         RETURN max
     END FUNCTION
 
-    # Identidad lógica del hijo: namespace:nombre_canonico, o sólo el nombre si no hay namespace
+    # Logical identity of the child: namespace:canonical_name, or just the name if
+    # there is no namespace. Used as the key in NodeDefinition.getChildren().
     FUNCTION getQualifiedName(): STRING
         IF isEmpty(namespace)
             RETURN normalized_name
