@@ -91,11 +91,15 @@ stxt-js 0.6.0 (npm, 2026-08-02). Pendiente, en orden recomendado:
    override `STXT_PATH`, duplicados en el mismo nivel = error).
 7. **`NodeWriter`**: serialización a STXT con estilo de indentación (tabs | 4 espacios) y garantía
    de round-trip.
-8. **Trazabilidad**: referencias a secciones de la spec en cada fichero (ya hay alguna, estilo
+8. **Traducción al inglés**: el repo debe quedar íntegramente en inglés — README.md (guía de
+   estilo) y todos los comentarios de los ficheros `.txt` (hoy mezclan español e inglés).
+   Estrategia: los ficheros que se toquen en los puntos 1-7 se traducen al revisarlos; al final,
+   pasada de barrido sobre los que no se hayan tocado, README.md y este CLAUDE.md.
+9. **Trazabilidad**: referencias a secciones de la spec en cada fichero (ya hay alguna, estilo
    "STXT-SCHEMA-SPEC §9.1") y una tabla fichero ↔ clase stxt-js ↔ clase stxt-java.
-9. **Oficialización** (al final, cuando todo lo anterior esté bien): mencionar stxt-impl desde
-   stxt-web y los CLAUDE.md de js/java; valorar adoptar el versionado común (js va por 0.6.0)
-   para que "misma versión = mismo comportamiento" incluya el pseudocódigo.
+10. **Oficialización** (al final, cuando todo lo anterior esté bien): mencionar stxt-impl desde
+    stxt-web y los CLAUDE.md de js/java; valorar adoptar el versionado común (js va por 0.6.0)
+    para que "misma versión = mismo comportamiento" incluya el pseudocódigo.
 
 ## Estructura actual
 
@@ -129,7 +133,10 @@ template/
 
 - Ficheros de pseudocódigo en `.txt`, siguiendo estrictamente la guía de [README.md](README.md)
   (keywords en MAYÚSCULAS inglés, variables snake_case, comentarios `#`).
-- Comentarios explicativos en español; identificadores y mensajes de error en inglés
-  (los códigos de error en MAYÚSCULAS deben coincidir con los de stxt-js/stxt-java).
+- **Idiomas**: la conversación con Joan es siempre en español (de España), pero **todo el
+  contenido del repositorio debe estar en inglés**: README.md, comentarios de los `.txt`,
+  identificadores, mensajes de error y este CLAUDE.md (se traduce en la pasada final, punto 8
+  del trabajo pendiente). Hoy los comentarios mezclan español e inglés: al tocar un fichero,
+  dejarlo en inglés.
+- Códigos de error en MAYÚSCULAS, idénticos a los de stxt-js/stxt-java.
 - Commits: mensajes cortos; `M+` es la convención local para cambios menores.
-- Idioma de trabajo con Joan: español.
