@@ -1,3 +1,13 @@
+# LineIndent: a source line already split into indentation level and content.
+#
+# parseLine() implements the indentation rules of STXT-SPEC §8 and the text block
+# line rules of §10.2 / §10.3:
+#   * 1 level = 1 TAB or TAB_SPACES spaces.
+#   * The indentation of a single line MUST be homogeneous: only tabs or only spaces.
+#     Mixing both in the same line is a parse error: MIXED_INDENTATION (§8.1, §8.3).
+#   * Comment lines and empty lines are never an error: their indentation is not
+#     validated (§11). They return NULL (or an empty preserved line inside a block).
+
 CLASS LineIndent
     FIELD indent_level: INTEGER
     FIELD line_without_indent: STRING
@@ -11,16 +21,19 @@ END CLASS
 
 FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, num_line: INTEGER): LineIndent
 
-    # Initialize indentation parsing state
+    # Indentation parsing state
     level: INTEGER = 0
     spaces: INTEGER = 0
     pointer: INTEGER = 0
+    saw_space: BOOLEAN = false
+    saw_tab: BOOLEAN = false
 
     WHILE pointer < line.length()
 
         c: CHAR = line.charAt(pointer)
 
         IF c == SPACE
+            saw_space = true
             spaces = spaces + 1
 
             IF spaces == TAB_SPACES
@@ -29,10 +42,12 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
             END IF
 
         ELSE IF c == TAB
+            saw_tab = true
             level = level + 1
             spaces = 0
 
         ELSE IF c == COMMENT_CHAR
+            # Comment line: discarded. Its indentation is NOT validated (§11).
             RETURN NULL
 
         ELSE
@@ -42,10 +57,19 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
 
         pointer = pointer + 1
 
-        # Inside text block: indentation deeper than parent
+        # Inside a text block: the line belongs to the block as soon as its level
+        # goes beyond the level of the block node. The rest of the line is free
+        # text: only right trim is applied (§10.2).
         IF last_node_block AND level > last_level
-            trimmed_line = rightTrim(line.substring(pointer))
-            RETURN LineIndent(level, trimmed_line)
+            text: STRING = rightTrim(line.substring(pointer))
+
+            # The prefix covering the block level MUST be homogeneous (§10.2 rule 1).
+            # Empty lines are always preserved and exempt from the check (§10.3).
+            IF saw_space AND saw_tab AND text.length() > 0
+                THROW ParseException(num_line, "MIXED_INDENTATION", "Mixed tabs and spaces in indentation")
+            END IF
+
+            RETURN LineIndent(level, text)
         END IF
 
     END WHILE
@@ -55,23 +79,30 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
     # Empty or whitespace-only line
     IF pointer == line.length()
         IF last_node_block
+            # Empty lines inside a block are preserved as "" (§10.3)
             RETURN LineIndent(last_level + 1, "")
         ELSE
+            # Empty lines outside a block are ignored; indentation not validated (§11)
             RETURN NULL
         END IF
     END IF
 
-    # Invalid indentation: spaces not multiple of TAB_SPACES
+    # Mixed tabs and spaces in the indentation of the same line (§8.1, §8.3)
+    IF saw_space AND saw_tab
+        THROW ParseException(num_line, "MIXED_INDENTATION", "Mixed tabs and spaces in indentation")
+    END IF
+
+    # Invalid indentation: spaces not a multiple of TAB_SPACES
     IF spaces > 0
         THROW ParseException(num_line, "INVALID_NUMBER_SPACES", "There are " + spaces + " spaces before node")
     END IF
 
-    # Validate indentation level progression
+    # Validate indentation level progression (no jumps, §11.3)
     IF level > (last_level + 1)
         THROW ParseException(num_line, "INDENTATION_LEVEL_NOT_VALID", "Level of indent incorrect: " + level)
     END IF
 
-    # General case: return line without consumed indentation
+    # General case: return the line without the consumed indentation
     content = line.substring(pointer).trim()
     RETURN LineIndent(level, content)
 

@@ -58,11 +58,10 @@ La frontera es **"semántica del lenguaje"**, no "lo que hace stxt-js".
 
 1. **Nombre canónico: conserva acentos, pasa a minúsculas.**
    `Año == año`, y ambos son **distintos** de `ano`/`ANO` (que son iguales entre sí).
-   Es el modelo IDN de la spec: NFC + minúsculas + compactación de separadores.
-   ⚠️ El pseudocódigo actual está **mal**: `normalizeChars` en
-   [core/string_utils.txt](core/string_utils.txt) describe NFKD + eliminación de diacríticos +
-   `[^a-z0-9] -> '-'`, que destruiría los acentos. Hay que corregirlo (y revisar el comentario
-   equivalente en [core/node.txt](core/node.txt)).
+   Es el modelo IDN de STXT-SPEC §4.3: trim → NFC → minúsculas (case folding) → toda secuencia
+   de separadores (`-`, `_`, espacios) pasa a un solo `-` → sin `-` en los extremos.
+   ✅ Corregido en [core/string_utils.txt](core/string_utils.txt) (2026-08-03; antes describía
+   NFKD + eliminación de diacríticos, que era incorrecto).
 
 2. **Hijos: se valida siempre la cardinalidad (min/max); el orden de aparición NO se valida.**
    El enfoque actual de [schema/schema_validator.txt](schema/schema_validator.txt)
@@ -71,15 +70,28 @@ La frontera es **"semántica del lenguaje"**, no "lo que hace stxt-js".
 ## Estado actual y trabajo pendiente
 
 Análisis hecho el 2026-08-03 comparando contra las specs (`Last modif: 2026-08-02`) y
-stxt-js 0.6.0 (npm, 2026-08-02). Pendiente, en orden recomendado:
+stxt-js 0.6.0 (npm, 2026-08-02).
 
-1. **Corregir `normalizeChars`** según la decisión semántica 1 (única corrección de fondo).
-2. **Regla tab/espacio**: la spec (desde 2026-07-25) dice que mezclar tab y espacios en la misma
-   línea de indentación es error de parseo. [core/line_indent.txt](core/line_indent.txt) hace lo
-   contrario (resetea el contador de espacios al ver un TAB y continúa). Corregir.
-3. **Tipos que faltan** en [schema/types.txt](schema/types.txt): TIME, UUID, BINARY (anotados como
-   no registrados) y **MARKDOWN** (añadido a la spec el 2026-07-25). El objetivo es paridad con la
-   spec (§ tipos de STXT-SCHEMA-SPEC); java registra 19, js 18.
+**Hecho (2026-08-03):**
+
+1. ✅ **`normalizeChars`** corregido según la decisión semántica 1
+   ([core/string_utils.txt](core/string_utils.txt), traducido a inglés; se eliminó `cleanSpaces`,
+   que ya no tiene consumidores tras el cambio de los tipos binarios).
+2. ✅ **Regla tab/espacio** ([core/line_indent.txt](core/line_indent.txt), traducido): mezclar tab
+   y espacios en la indentación de una misma línea → `MIXED_INDENTATION` (STXT-SPEC §8.1/§8.3).
+   Matices de la spec: comentarios y líneas vacías nunca dan error de indentación (§11); dentro de
+   un bloque `>>` el chequeo aplica al prefijo que cubre el nivel de bloque y las líneas vacías
+   están exentas (§10.2 regla 1, §10.3).
+3. ✅ **Tipos** ([schema/types.txt](schema/types.txt), traducido): registrados los 18 de la spec.
+   Añadidos TIME, UUID, BINARY, MARKDOWN. Además, correcciones de paridad con spec/js detectadas
+   al comparar: `RegexValue` (y ENUM, INLINE, URL) ahora rechazan la forma bloque con
+   `NOT_ALLOWED_TEXT` usando `isTextNode()`; BLOCK exige forma bloque con el código
+   `BLOCK_FORM_REQUIRED`; los tipos binarios (HEXADECIMAL, BINARY, BASE64) validan sobre
+   `binaryValue(node)` (§9.5: en bloque, concatenación de líneas con trim por línea — el
+   whitespace interior NO se ignora); HEXADECIMAL ya no admite prefijo `#` ni exige longitud par.
+
+**Pendiente, en orden recomendado:**
+
 4. **`ParseResult` / modo acumulador de errores**: `parse()` es fail-fast; añadir la variante
    `parseResult()` que acumula errores + nodos, como en js/java.
 5. **Contratos `Observer` / `Validator`**: nuevo fichero en `core/` (o `processors/`) definiendo
@@ -107,12 +119,12 @@ stxt-js 0.6.0 (npm, 2026-08-02). Pendiente, en orden recomendado:
 README.md                       Guía de estilo del pseudolenguaje
 core/
   constants.txt                 COMMENT_CHAR, TAB_SPACES=4, separadores...
-  line_indent.txt               parseLine: indentación → LineIndent
+  line_indent.txt               parseLine: indentación → LineIndent (incluye MIXED_INDENTATION) [EN]
   name_namespace.txt            NameNamespaceParser: "Nombre (ns)" → (name, namespace)
   node.txt                      Clase Node (árbol inmutable tras freeze)
   parser.txt                    parse(): pila de nodos abiertos por nivel
   platform.txt                  Funciones dependientes de plataforma (declaradas, sin cuerpo)
-  string_utils.txt              Utilidades de cadena (normalizeChars PENDIENTE de corregir)
+  string_utils.txt              Utilidades de cadena (normalizeChars = nombre canónico §4.3) [EN]
   validations.txt               validateNamespaceFormat
 schema/
   schema.txt                    Schema: namespace + NodeDefinitions
@@ -121,13 +133,15 @@ schema/
   schema_parser.txt             Documento @stxt.schema → Schema
   schema_provider.txt           SchemaProvider + Cache + Resources + Meta (bootstrap)
   schema_validator.txt          Valida nodo contra schema (tipo + cardinalidades, sin orden)
-  types.txt                     TypeRegistry + tipos (INCOMPLETO: faltan TIME, UUID, BINARY, MARKDOWN)
+  types.txt                     TypeRegistry + los 18 tipos de la spec + binaryValue (§9.5) [EN]
 template/
   template_parser.txt           Documento @stxt.template → Schema
   child_line.txt                ChildLine: (cardinalidad) TIPO [valores]
   child_line_parser.txt         Parser del RuleSpec de Structure >>
   template_schema_provider.txt  Providers de template + meta-template
 ```
+
+`[EN]` = fichero ya traducido íntegramente al inglés (punto 8 del trabajo pendiente).
 
 ## Convenciones del repo
 
