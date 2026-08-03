@@ -8,6 +8,11 @@
 # Implementation note: leaf types validate their own value form; the prohibition of
 # children on leaf types is checked by TEXT and MARKDOWN (and relies on the recursive
 # validation for the rest).
+#
+# Packaging note: this blueprint keeps every type in ONE file so the whole model can
+# be read side by side. Implementations typically split them one type per file
+# (stxt-js src/schema/type/, stxt-java dev.stxt.schema.type) — do whatever is
+# idiomatic on your platform; only the names, codes and behavior are normative.
 
 # -------------------------------------------------------------------
 # Common interface
