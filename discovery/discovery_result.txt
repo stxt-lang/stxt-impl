@@ -1,0 +1,117 @@
+# DiscoveryResult: the outcome of resolving a document's definitions
+# (STXT-DISCOVERY-SPEC): the chain of levels, the active definition per namespace
+# (nearest level wins) and every resolution error found along the way.
+#
+# It implements SchemaProvider, so it can be handed directly to a SchemaValidator to
+# validate the document it was resolved for. It serves the meta-schemas of the two
+# reserved namespaces itself, so schema and template documents also validate against it.
+
+# An active definition: a schema or template that won the per-namespace precedence for
+# a document's resolution chain, together with where it came from (provenance).
+CLASS DiscoveryDefinition
+    FIELD namespace: STRING     # target namespace, as written in the definition document
+    FIELD schema: Schema        # the compiled schema (templates compile to schemas at load time)
+    FIELD file: STRING          # full path of the file the definition was read from
+    FIELD level_dir: STRING     # resolution directory (level) the file belongs to
+END CLASS
+
+# A loaded resolution directory: its definitions indexed by lowercased target
+# namespace. Namespaces in conflict inside the level (§8.1) are EXCLUDED from the map.
+CLASS DiscoveryLevel
+    FIELD dir: STRING                                      # full path of the resolution directory
+    FIELD definitions: MAP<STRING, DiscoveryDefinition> = {}
+    FIELD errors: DiscoveryError[] = []
+END CLASS
+
+CLASS DiscoveryResult IMPLEMENTS SchemaProvider
+
+    FIELD levels: DiscoveryLevel[]          # loaded levels of the chain, highest precedence first
+    FIELD schema_meta: SchemaProvider       # provider of the @stxt.schema meta-schema
+    FIELD template_meta: SchemaProvider     # provider of the @stxt.template meta-schema
+
+    # Built by DiscoveryResolver; not meant to be constructed directly.
+    CONSTRUCTOR (levels, schema_meta, template_meta)
+        levels        = levels
+        schema_meta   = schema_meta
+        template_meta = template_meta
+    END CONSTRUCTOR
+
+    # Resolves the schema that applies to a namespace: the meta-schemas for the two
+    # reserved namespaces, and otherwise the active definition of the nearest level.
+    # NULL if the chain has no definition for it (SchemaProvider contract).
+    FUNCTION getSchema(namespace: STRING): Schema
+        IF namespace == "@stxt.template"
+            RETURN template_meta.getSchema(namespace)
+        ELSE IF namespace == Schema.SCHEMA_NAMESPACE
+            RETURN schema_meta.getSchema(namespace)
+        END IF
+
+        definition: DiscoveryDefinition = getDefinition(namespace)
+        IF definition IS NULL
+            RETURN NULL
+        END IF
+
+        RETURN definition.schema
+    END FUNCTION
+
+    # The active definition of a namespace: the one from the NEAREST level that defines
+    # it (§5), with its provenance. NULL if the chain has none for the namespace.
+    FUNCTION getDefinition(namespace: STRING): DiscoveryDefinition
+        key: STRING = lowerCase(namespace)
+
+        FOREACH level IN levels
+            IF level.definitions.containsKey(key)
+                RETURN level.definitions[key]
+            END IF
+        END FOREACH
+
+        RETURN NULL
+    END FUNCTION
+
+    # Every active definition of the chain, with per-namespace precedence already
+    # applied: one entry per namespace, from its nearest defining level.
+    FUNCTION getActiveDefinitions(): DiscoveryDefinition[]
+        seen: STRING[] = []
+        result: DiscoveryDefinition[] = []
+
+        FOREACH level IN levels
+            FOREACH key IN level.definitions.keys()
+                IF NOT seen.contains(key)
+                    seen.push(key)
+                    result.push(level.definitions[key])
+                END IF
+            END FOREACH
+        END FOREACH
+
+        RETURN result
+    END FUNCTION
+
+    # Every active schema of the chain (the schemas of getActiveDefinitions()).
+    FUNCTION getAllSchemas(): Schema[]
+        result: Schema[] = []
+        FOREACH definition IN getActiveDefinitions()
+            result.push(definition.schema)
+        END FOREACH
+        RETURN result
+    END FUNCTION
+
+    # The resolution chain: the loaded level directories, highest precedence first.
+    FUNCTION getChain(): STRING[]
+        result: STRING[] = []
+        FOREACH level IN levels
+            result.push(level.dir)
+        END FOREACH
+        RETURN result
+    END FUNCTION
+
+    # Every resolution error found while loading the chain (§8), ordered by level and
+    # then by file.
+    FUNCTION getErrors(): DiscoveryError[]
+        result: DiscoveryError[] = []
+        FOREACH level IN levels
+            result.pushAll(level.errors)
+        END FOREACH
+        RETURN result
+    END FUNCTION
+
+END CLASS

@@ -128,6 +128,7 @@ Suponemos que array también tiene los siguentes métodos:
 * pushAll(array): Añade todos los valores de otro array al final
 * pop(): Recupera y elimina el último valor
 * last(): Recupera el último valor
+* contains(valor): Devuelve true si el valor existe en el array
 * Se recupera un valor con nombre_variable[posicion]
 
 ### 4.4 Maps (diccionarios)

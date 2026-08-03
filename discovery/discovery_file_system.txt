@@ -1,0 +1,36 @@
+# DiscoveryFileSystem: minimal file-system abstraction used by DiscoveryResolver
+# (STXT-DISCOVERY-SPEC).
+#
+# The resolver treats paths as OPAQUE STRINGS: it never parses or concatenates them
+# itself, so an implementation may back them with plain OS paths, editor URIs or an
+# in-memory tree for tests. All paths returned by an implementation MUST be canonical
+# enough that string equality means "same directory".
+#
+# Platform note: hosts with asynchronous I/O (e.g. JavaScript) implement these
+# operations as async; the resolver logic is the same either way.
+
+# An entry of a directory listing, as returned by listDirectory().
+CLASS DiscoveryEntry
+    FIELD path: STRING          # full path, in the same form the file system uses everywhere
+    FIELD name: STRING          # base name (last path segment)
+    FIELD is_directory: BOOLEAN
+END CLASS
+
+INTERFACE DiscoveryFileSystem
+
+    # true if the path exists and is a directory; false otherwise (including I/O errors).
+    FUNCTION isDirectory(path: STRING): BOOLEAN
+
+    # The immediate entries of a directory, in any order.
+    FUNCTION listDirectory(path: STRING): DiscoveryEntry[]
+
+    # Reads a file as UTF-8 text.
+    FUNCTION readFile(path: STRING): STRING
+
+    # The parent directory of a path, or NULL when the path is the file-system root.
+    FUNCTION parentOf(path: STRING): STRING
+
+    # Joins a directory path and a child name.
+    FUNCTION join(path: STRING, name: STRING): STRING
+
+END INTERFACE

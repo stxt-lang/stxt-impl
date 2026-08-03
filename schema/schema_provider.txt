@@ -1,144 +1,179 @@
-# SchemaProvider: abstrae la obtención del Schema efectivo para un namespace.
-# Existen varias implementaciones que se componen entre sí:
-#   * SchemaProviderResources: carga y parsea un schema desde un recurso externo.
-#   * SchemaProviderMeta:      proporciona el meta-schema (@stxt.schema) embebido.
-#   * SchemaProviderCache:     cachea y consulta en cadena varios providers.
+# SchemaProvider: resolves the Schema that applies to a namespace.
+#
+# CONTRACT: getSchema() returns the Schema, or NULL when the provider has no schema
+# for that namespace. Providers do NOT throw "not found" errors: it is the consumer
+# (typically SchemaValidator) who reports SCHEMA_NOT_FOUND when the resolution ends
+# in NULL. This keeps providers composable (fallback chains, discovery).
+#
+# Composable implementations: SchemaProviderMemory (registered schemas + parent
+# fallback), SchemaProviderMeta (the embedded meta-schema), DiscoveryResult (see
+# discovery/), TemplateSchemaProviderMemory (see template/).
 
 # -------------------------------------------------------------------
-# Interfaz
+# Interface
 # -------------------------------------------------------------------
 INTERFACE SchemaProvider
-    # Devuelve el Schema asociado al namespace, o lanza/encadena si no existe.
+    # The schema of the namespace, or NULL if this provider has none for it.
     FUNCTION getSchema(namespace: STRING): Schema
 END INTERFACE
 
 # -------------------------------------------------------------------
-# Cache + cadena de providers
+# In-memory provider with parent fallback
 # -------------------------------------------------------------------
-CLASS SchemaProviderCache IMPLEMENTS SchemaProvider
+# Keeps the schemas added with addSchema() indexed by namespace, and falls back to a
+# parent provider (the meta-schema provider by default) for the namespaces it does
+# not know.
+CLASS SchemaProviderMemory IMPLEMENTS SchemaProvider
 
-    FIELD cache: MAP<STRING, Schema> = {}
-    FIELD providers: SchemaProvider[]
+    FIELD parent: SchemaProvider
+    FIELD schemas: MAP<STRING, Schema> = {}     # key = lowercased namespace, insertion order
 
-    CONSTRUCTOR (providers)
-        providers = providers
+    CONSTRUCTOR ()
+        parent = SchemaProviderMeta()
     END CONSTRUCTOR
 
+    CONSTRUCTOR (parent)
+        parent = parent
+    END CONSTRUCTOR
+
+    # Resolves from the registered schemas, delegating to the parent when unknown here.
     FUNCTION getSchema(namespace: STRING): Schema
+        key: STRING = lowerCase(namespace)
 
-        IF namespace IS NULL OR isEmpty(namespace)
-            THROW SchemaException("NAMESPACE_REQUIRED", "Namespace is required to load schema")
-        END IF
-
-        namespace = lowerCase(namespace)
-
-        # Retorno desde cache si ya está cargado
-        cached: Schema = cache[namespace]
-        IF cached IS NOT NULL
-            RETURN cached
-        END IF
-
-        # Consultamos cada provider en orden; el primero que resuelva gana.
-        # Un ResourceNotFoundException en un provider no aborta: se prueba el siguiente.
-        result: Schema = NULL
-        FOREACH provider IN providers
-            result = tryGetSchema(provider, namespace)
-            IF result IS NOT NULL
-                BREAK
-            END IF
-        END FOREACH
-
+        result: Schema = schemas[key]
         IF result IS NULL
-            THROW SchemaException("NOT_FOUND_SCHEMA", "Not found schema " + namespace)
+            result = parent.getSchema(namespace)
         END IF
 
-        cache.put(namespace, result)
         RETURN result
     END FUNCTION
 
-    # Intenta resolver con un provider, tragando "recurso no encontrado".
-    FUNCTION tryGetSchema(provider: SchemaProvider, namespace: STRING): Schema
-        # Devuelve NULL si el provider no dispone del recurso (ResourceNotFoundException)
-        RETURN provider.getSchema(namespace)   # ResourceNotFoundException => NULL
-    END FUNCTION
-
-END CLASS
-
-# -------------------------------------------------------------------
-# Provider que carga schemas desde recursos externos
-# -------------------------------------------------------------------
-CLASS SchemaProviderResources IMPLEMENTS SchemaProvider
-
-    FIELD resources_loader: ResourcesLoader
-    FIELD schema_validator: SchemaValidator
-
-    CONSTRUCTOR (resources_loader)
-        resources_loader = resources_loader
-        # Los schemas cargados se validan contra el meta-schema (@stxt.schema)
-        schema_validator = SchemaValidator(SchemaProviderMeta())
-    END CONSTRUCTOR
-
-    FUNCTION getSchema(namespace: STRING): Schema
-
-        IF namespace IS NULL OR isEmpty(namespace)
-            THROW SchemaException("NAMESPACE_REQUIRED", "Namespace is required to load schema")
-        END IF
-
-        namespace = lowerCase(namespace)
-
-        # Recuperamos el texto del schema para el namespace objetivo
-        text_schema: STRING = resources_loader.retrieve(Schema.SCHEMA_NAMESPACE, namespace)
-
-        # Parseamos validando contra el meta-schema durante el parseo
+    # Parses a schema document, validates it against the meta-schema and registers it
+    # under its own namespace.
+    PROCEDURE addSchema(text: STRING)
         parser: Parser = Parser()
-        parser.registerValidator(schema_validator)
-        nodes: Node[] = parser.parse(text_schema)
+        nodes: Node[] = parser.parse(text)
 
-        IF nodes.size() != 1
-            THROW SchemaException("INVALID_SCHEMA", "There are " + nodes.size() + ", and expected is 1")
+        IF nodes.length() != 1
+            THROW SchemaException("INVALID_SCHEMA", "There are " + nodes.length() + ", and expected is 1")
         END IF
 
-        # Convertimos el árbol en un Schema
-        root: Node    = nodes[0]
-        sch: Schema   = SchemaParser.transformNodeToSchema(root)
+        node: Node = nodes[0]
 
-        # El namespace declarado DEBE coincidir con el solicitado
-        IF NOT equalsIgnoreCase(sch.getNamespace(), namespace)
-            THROW SchemaException("INVALID_SCHEMA", "Schema namespace is " + sch.getNamespace() + ", and expected is " + namespace)
+        # The document MUST validate against the meta-schema (@stxt.schema)
+        validator: SchemaValidator = SchemaValidator(SchemaProviderMeta(), true)
+        errors: ValidationException[] = validator.validate(node)
+        IF errors.length() > 0
+            THROW errors[0]
         END IF
 
-        RETURN sch
+        schema: Schema = SchemaParser.transformNodeToSchema(node)
+        schemas.put(schema.getNamespace(), schema)
+    END PROCEDURE
+
+    # Removes every schema registered here (the parent is left untouched).
+    PROCEDURE clear()
+        schemas = {}
+    END PROCEDURE
+
+    # Every schema registered here, in registration order.
+    FUNCTION getAllSchemas(): Schema[]
+        RETURN schemas.values()
     END FUNCTION
 
 END CLASS
 
 # -------------------------------------------------------------------
-# Provider del meta-schema (@stxt.schema) embebido
+# Provider of the embedded meta-schema (@stxt.schema)
 # -------------------------------------------------------------------
+# Defines IN CODE the meta-schema of the schema language itself, so that a loaded
+# schema can validate itself (bootstrap). Its content is normative:
+# STXT-SCHEMA-SPEC §15.2 ("the schema of the schema").
 CLASS SchemaProviderMeta IMPLEMENTS SchemaProvider
 
-    # Texto del meta-schema que valida cualquier documento del namespace @stxt.schema
-    CONSTANT META_TEXT: STRING = "Schema (@stxt.schema): @stxt.schema ... (ver STXT-SCHEMA-SPEC §15.2)"
+    # META_TEXT is the following @stxt.schema document, embedded verbatim in code:
+    #
+    #   Schema (@stxt.schema): @stxt.schema
+    #       Node: Schema
+    #           Children:
+    #               Child: Description
+    #                   Max: 1
+    #               Child: Node
+    #                   Min: 1
+    #       Node: Node
+    #           Children:
+    #               Child: Type
+    #                   Max: 1
+    #               Child: Children
+    #                   Max: 1
+    #               Child: Description
+    #                   Max: 1
+    #               Child: Values
+    #                   Max: 1
+    #       Node: Children
+    #           Type: GROUP
+    #           Children:
+    #               Child: Child
+    #                   Min: 1
+    #       Node: Description
+    #           Type: TEXT
+    #       Node: Child
+    #           Children:
+    #               Child: Min
+    #                   Max: 1
+    #               Child: Max
+    #                   Max: 1
+    #       Node: Min
+    #           Type: NATURAL
+    #       Node: Max
+    #           Type: NATURAL
+    #       Node: Type
+    #           Type: ENUM
+    #           Values:
+    #               Value: INLINE
+    #               Value: BLOCK
+    #               Value: TEXT
+    #               Value: BOOLEAN
+    #               Value: URL
+    #               Value: INTEGER
+    #               Value: NATURAL
+    #               Value: NUMBER
+    #               Value: DATE
+    #               Value: TIME
+    #               Value: TIMESTAMP
+    #               Value: UUID
+    #               Value: EMAIL
+    #               Value: HEXADECIMAL
+    #               Value: BINARY
+    #               Value: BASE64
+    #               Value: GROUP
+    #               Value: ENUM
+    #               Value: MARKDOWN
+    #       Node: Values
+    #           Type: GROUP
+    #           Children:
+    #               Child: Value
+    #                   Min: 1
+    #       Node: Value
+    CONSTANT META_TEXT: STRING
 
     FIELD meta: Schema
 
     CONSTRUCTOR ()
         parser: Parser = Parser()
-        nodes: Node[]  = parser.parse(META_TEXT)
-        IF nodes.size() != 1
-            THROW SchemaException("META_SCHEMA_INVALID", "Meta schema must produce exactly 1 document, got " + nodes.size())
+        nodes: Node[] = parser.parse(META_TEXT)
+
+        IF nodes.length() != 1
+            THROW ValidationException(0, "META_SCHEMA_INVALID", "Meta schema must produce exactly 1 document, got " + nodes.length())
         END IF
+
         meta = SchemaParser.transformNodeToSchema(nodes[0])
     END CONSTRUCTOR
 
+    # Serves the meta-schema; NULL for any other namespace (SchemaProvider contract).
     FUNCTION getSchema(namespace: STRING): Schema
-        # Sólo resuelve el propio namespace @stxt.schema
         IF namespace != Schema.SCHEMA_NAMESPACE
-            THROW ResourceNotFoundException(Schema.SCHEMA_NAMESPACE, namespace)
-        END IF
-
-        IF meta IS NULL
-            THROW SchemaException("META_SCHEMA_NOT_AVAILABLE", "Meta schema not available")
+            RETURN NULL
         END IF
 
         RETURN meta

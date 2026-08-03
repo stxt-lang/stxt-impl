@@ -1,0 +1,273 @@
+# DiscoveryResolver: reference implementation of STXT-DISCOVERY-SPEC. It builds the
+# resolution chain of a document (project ascent, user level, system level, or the
+# STXT_PATH override), loads every definition of every level and applies the
+# per-namespace precedence.
+#
+# The resolver is HOST-AGNOSTIC: all file-system and environment access goes through
+# the injected DiscoveryFileSystem and DiscoveryEnvironment, so the same logic serves
+# a command line, an editor or a test (an in-memory tree).
+#
+# Loaded levels are cached by directory: resolving many documents that share levels
+# loads each directory once, which is the sharing that §7 allows — a level's content
+# does not depend on which document is being resolved. Call clearCache() when the
+# underlying files may have changed.
+
+# Name of the resolution directories (§3)
+CONSTANT STXT_DIR: STRING = ".stxt"
+
+# File extension of STXT documents
+CONSTANT STXT_EXTENSION: STRING = ".stxt"
+
+# Default maximum number of ancestor directories examined during the project-level
+# ascent. A safeguard against pathological paths (circular links, virtual file
+# systems), as allowed by §4.1.
+CONSTANT DEFAULT_MAX_ASCENT: INTEGER = 32
+
+CLASS DiscoveryResolver
+
+    FIELD fs: DiscoveryFileSystem
+    FIELD env: DiscoveryEnvironment
+    FIELD max_ascent: INTEGER = DEFAULT_MAX_ASCENT
+    FIELD schema_meta: SchemaProvider   = SchemaProviderMeta()
+    FIELD template_meta: SchemaProvider = MetaTemplateSchemaProvider()
+    FIELD level_cache: MAP<STRING, DiscoveryLevel> = {}
+
+    CONSTRUCTOR (fs, env)
+        fs  = fs
+        env = env
+    END CONSTRUCTOR
+
+    CONSTRUCTOR (fs, env, max_ascent)
+        fs         = fs
+        env        = env
+        max_ascent = max_ascent
+    END CONSTRUCTOR
+
+    # ----------------------------------------
+    # Chain building (§4 and §6)
+    # ----------------------------------------
+
+    # Builds the resolution chain of a document without loading any definition.
+    # document_dir is the directory containing the document, or NULL for a document
+    # with no file-system location (standard input, an unsaved buffer), whose chain
+    # starts at the user level. Returns the EXISTING resolution directories, highest
+    # precedence first.
+    FUNCTION resolveChain(document_dir: STRING): STRING[]
+
+        # STXT_PATH, when defined, completely replaces the chain (§6)
+        stxt_path: STRING[] = env.getStxtPath()
+        IF stxt_path IS NOT NULL
+            RETURN existingUnique(stxt_path)
+        END IF
+
+        chain: STRING[] = []
+
+        # Project level: every .stxt directory from the document's directory upward (§4.1)
+        IF document_dir IS NOT NULL
+            dir: STRING = document_dir
+            ascended: INTEGER = 0
+
+            WHILE ascended < max_ascent AND dir IS NOT NULL
+                candidate: STRING = fs.join(dir, STXT_DIR)
+
+                IF fs.isDirectory(candidate)
+                    chain.push(candidate)
+                END IF
+
+                dir = fs.parentOf(dir)
+                ascended = ascended + 1
+            END WHILE
+        END IF
+
+        # User and system levels (§4.2). The ascent may have reached them already
+        # (a document under the user's home finds $HOME/.stxt as a project
+        # candidate): deduplicate.
+        FOREACH dir IN [env.getUserLevelDir(), env.getSystemLevelDir()]
+            IF dir IS NOT NULL AND NOT chain.contains(dir) AND fs.isDirectory(dir)
+                chain.push(dir)
+            END IF
+        END FOREACH
+
+        RETURN chain
+    END FUNCTION
+
+    # Resolves the definitions applicable to a document: builds its chain, loads every
+    # level (from the cache when already loaded) and returns the result with the
+    # per-namespace precedence applied, usable directly as a SchemaProvider.
+    FUNCTION resolve(document_dir: STRING): DiscoveryResult
+
+        chain: STRING[] = resolveChain(document_dir)
+        levels: DiscoveryLevel[] = []
+
+        FOREACH dir IN chain
+            levels.push(loadLevel(dir))
+        END FOREACH
+
+        RETURN DiscoveryResult(levels, schema_meta, template_meta)
+    END FUNCTION
+
+    # Empties the level cache, so that the next resolve re-reads every directory.
+    # Call it when the definition files may have changed (e.g. from a file watcher).
+    PROCEDURE clearCache()
+        level_cache = {}
+    END PROCEDURE
+
+    # Filters a list of directories down to the existing ones, removing duplicates.
+    FUNCTION existingUnique(dirs: STRING[]): STRING[]
+        result: STRING[] = []
+
+        FOREACH dir IN dirs
+            IF NOT result.contains(dir) AND fs.isDirectory(dir)
+                result.push(dir)
+            END IF
+        END FOREACH
+
+        RETURN result
+    END FUNCTION
+
+    # ----------------------------------------
+    # Level loading (§5, §7 and §8)
+    # ----------------------------------------
+
+    # Loads a resolution directory (or returns it from the cache): every file under
+    # it, recursively, with the level-local duplicate detection of §5 / §8.1.
+    FUNCTION loadLevel(dir: STRING): DiscoveryLevel
+
+        cached: DiscoveryLevel = level_cache[dir]
+        IF cached IS NOT NULL
+            RETURN cached
+        END IF
+
+        level: DiscoveryLevel = DiscoveryLevel(dir)
+        conflicted: STRING[] = []
+
+        FOREACH file IN collectFiles(dir)
+            loadFile(file, level, conflicted)
+        END FOREACH
+
+        level_cache.put(dir, level)
+        RETURN level
+    END FUNCTION
+
+    # Collects every file under a directory, recursively, SORTED BY PATH so that
+    # results and error messages do not depend on the listing order of the file system.
+    FUNCTION collectFiles(dir: STRING): STRING[]
+
+        files: STRING[] = []
+        entries: DiscoveryEntry[] = sortByPath(fs.listDirectory(dir))
+
+        FOREACH entry IN entries
+            IF entry.is_directory
+                files.pushAll(collectFiles(entry.path))
+            ELSE
+                files.push(entry.path)
+            END IF
+        END FOREACH
+
+        RETURN files
+    END FUNCTION
+
+    # Loads one file of a level: parses it and registers every root as a definition,
+    # reporting the errors of §8.
+    PROCEDURE loadFile(file: STRING, level: DiscoveryLevel, conflicted: STRING[])
+
+        # §3: every file under a resolution directory must be a definition
+        IF NOT endsWith(file, STXT_EXTENSION)
+            level.errors.push(DiscoveryError(DiscoveryError.NOT_A_DEFINITION, file,
+                "Not an STXT definition file: " + file))
+            RETURN
+        END IF
+
+        nodes: Node[] = NULL
+
+        TRY
+            nodes = Parser().parse(fs.readFile(file))
+        CATCH e
+            level.errors.push(DiscoveryError(DiscoveryError.NOT_PARSEABLE, file,
+                "Cannot parse " + file + ": " + e.getMessage()))
+            RETURN
+        END TRY
+
+        IF nodes.length() == 0
+            level.errors.push(DiscoveryError(DiscoveryError.NOT_A_DEFINITION, file,
+                "Empty document, not a definition: " + file))
+            RETURN
+        END IF
+
+        FOREACH node IN nodes
+            loadRootNode(node, file, level, conflicted)
+        END FOREACH
+    END PROCEDURE
+
+    # Validates one root node against its meta-schema, compiles it to a schema and
+    # registers it in the level, detecting same-level duplicates.
+    PROCEDURE loadRootNode(node: Node, file: STRING, level: DiscoveryLevel, conflicted: STRING[])
+
+        namespace: STRING = node.getNamespace()
+        schema: Schema = NULL
+
+        TRY
+            IF namespace == "@stxt.template"
+                schema = compileTemplate(node)
+            ELSE IF namespace == Schema.SCHEMA_NAMESPACE
+                schema = compileSchema(node)
+            ELSE
+                level.errors.push(DiscoveryError(DiscoveryError.NOT_A_DEFINITION, file,
+                    "Root node belongs to '" + namespace + "', not to @stxt.schema or @stxt.template: " + file))
+                RETURN
+            END IF
+        CATCH e
+            level.errors.push(DiscoveryError(DiscoveryError.INVALID_DEFINITION, file,
+                "Invalid definition in " + file + ": " + e.getMessage()))
+            RETURN
+        END TRY
+
+        key: STRING = lowerCase(schema.getNamespace())
+
+        # §8.1: on a same-level duplicate, NEVER silently pick one of the definitions —
+        # the namespace has no active definition while the conflict exists.
+        IF conflicted.contains(key) OR level.definitions.containsKey(key)
+
+            first_file: STRING = "another file of this level"
+            IF level.definitions.containsKey(key)
+                first_file = level.definitions[key].file
+                level.definitions.remove(key)
+                conflicted.push(key)
+            END IF
+
+            level.errors.push(DiscoveryError(DiscoveryError.DUPLICATE_NAMESPACE, file,
+                "Duplicate definition for namespace '" + schema.getNamespace() + "' at level " + level.dir +
+                ": already defined in " + first_file,
+                schema.getNamespace()))
+            RETURN
+        END IF
+
+        definition: DiscoveryDefinition = DiscoveryDefinition(schema.getNamespace(), schema, file, level.dir)
+        level.definitions.put(key, definition)
+    END PROCEDURE
+
+    # Validates a schema root node against the meta-schema and transforms it into a
+    # Schema, throwing the first validation error found.
+    FUNCTION compileSchema(node: Node): Schema
+        errors: ValidationException[] = SchemaValidator(schema_meta, true).validate(node)
+        IF errors.length() > 0
+            THROW errors[0]
+        END IF
+        RETURN SchemaParser.transformNodeToSchema(node)
+    END FUNCTION
+
+    # Validates a template root node against the meta-template and compiles it into a
+    # Schema, throwing the first validation error found.
+    FUNCTION compileTemplate(node: Node): Schema
+        errors: ValidationException[] = SchemaValidator(template_meta, true).validate(node)
+        IF errors.length() > 0
+            THROW errors[0]
+        END IF
+        RETURN TemplateParser.transformNodeToSchema(node)
+    END FUNCTION
+
+END CLASS
+
+# Platform helper: sorts directory entries lexicographically by path.
+FUNCTION sortByPath(entries: DiscoveryEntry[]): DiscoveryEntry[]
+END FUNCTION

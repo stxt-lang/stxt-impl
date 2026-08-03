@@ -1,0 +1,40 @@
+# DiscoveryError: a resolution error (STXT-DISCOVERY-SPEC §8).
+#
+# Resolution errors are COLLECTED, not thrown: the spec mandates reporting them while
+# allowing the tool to keep loading the remaining definitions, so a resolve pass
+# returns every error it found instead of aborting at the first one.
+
+CLASS DiscoveryError
+
+    # Two definitions for the same target namespace at the same level (§8.1)
+    CONSTANT DUPLICATE_NAMESPACE: STRING = "DISCOVERY_DUPLICATE_NAMESPACE"
+
+    # A file under a resolution directory that does not parse as STXT (§8.2)
+    CONSTANT NOT_PARSEABLE: STRING = "DISCOVERY_NOT_PARSEABLE"
+
+    # A file whose root node belongs neither to @stxt.schema nor to @stxt.template (§8.3)
+    CONSTANT NOT_A_DEFINITION: STRING = "DISCOVERY_NOT_A_DEFINITION"
+
+    # A definition that does not validate against its meta-schema (§8.4)
+    CONSTANT INVALID_DEFINITION: STRING = "DISCOVERY_INVALID_DEFINITION"
+
+    FIELD code: STRING          # one of the DISCOVERY_* constants above
+    FIELD file: STRING          # full path of the offending file
+    FIELD message: STRING       # human-readable description
+    FIELD namespace: STRING     # target namespace involved, or NULL if not about a namespace
+
+    CONSTRUCTOR (code, file, message)
+        code      = code
+        file      = file
+        message   = message
+        namespace = NULL
+    END CONSTRUCTOR
+
+    CONSTRUCTOR (code, file, message, namespace)
+        code      = code
+        file      = file
+        message   = message
+        namespace = namespace
+    END CONSTRUCTOR
+
+END CLASS
