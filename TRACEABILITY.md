@@ -86,6 +86,9 @@ Decisions taken here that js/java should adopt (see "Resolved semantic decisions
    providers of js/java still throw `RESOURCE_NOT_FOUND` there.
 2. The exception model is exactly three types (`ParseException`, `ValidationException`,
    `RuntimeException`); stxt-java still carries `SchemaException` and others.
-3. `SchemaProviderMemory.addSchema` / `TemplateSchemaProviderMemory.addTemplate` MUST
+3. ~~`SchemaProviderMemory.addSchema` / `TemplateSchemaProviderMemory.addTemplate` MUST
    fail when the definition does not validate against its meta-schema; stxt-js 0.6.0
-   currently discards those errors (bug flagged).
+   discarded those errors.~~ **Resolved**: fixed in stxt-js on 2026-08-03 (commit
+   `5847d99`, tests in `src/test/providers.test.ts`); npm releases after 0.6.0 carry
+   it. stxt-java should be checked for the same pattern when it adopts the collecting
+   `Validator` contract.

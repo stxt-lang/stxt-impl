@@ -137,11 +137,13 @@ The boundary is **"language semantics"**, not "whatever stxt-js does".
    placeholders are gone: the meta-schema (§15.2, with the 18 Type values) and the
    meta-template (§16) are embedded in full.
    🐞 **Bug spotted in stxt-js** while comparing: `SchemaProviderMemory.addSchema` and
-   `TemplateSchemaProviderMemory.addTemplate` discard the array returned by
-   `validator.validate(node)` → they silently register invalid definitions (leftover
+   `TemplateSchemaProviderMemory.addTemplate` discarded the array returned by
+   `validator.validate(node)` → they silently registered invalid definitions (leftover
    of the Validator contract change; `DiscoveryResolver.compile` does check it). The
-   blueprint describes it correctly (throw the first error if any). Flagged for fixing
-   in stxt-js.
+   blueprint describes it correctly (throw the first error if any).
+   ✅ **Fixed in stxt-js on 2026-08-03** (commit `5847d99`, regression tests in
+   `src/test/providers.test.ts`, suite at 256) — first bug caught by this blueprint.
+   Unreleased: npm 0.6.0 predates the fix.
 7. ✅ **`discovery/`**: complete new module per STXT-DISCOVERY-SPEC, mirroring
    `src/discovery/` of stxt-js:
    [discovery_file_system.txt](discovery/discovery_file_system.txt) and
