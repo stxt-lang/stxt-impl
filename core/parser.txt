@@ -5,7 +5,8 @@
 # Algorithm: a stack of open nodes, one per indentation level (the size of the stack is
 # the level of the next line). When a line at level N arrives, every node deeper than N
 # is closed (validated, attached to its parent and notified to the observers), and the
-# new node is pushed onto the stack, still open.
+# new node is pushed onto the stack, still open. A document may hold multiple root
+# nodes, which close under concatenation (STXT-SPEC §8.5 — logs/streaming friendly).
 #
 # Two modes:
 #   * parse():       traditional fail-fast, throws the first error found.

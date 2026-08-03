@@ -1,3 +1,6 @@
+# Language constants. Spec: STXT-SPEC §3 (encoding), §5 (':' inline nodes),
+# §6 ('>>' block nodes), §8 (indentation) and §9 (comments).
+
 COMMENT_CHAR 		= "#"
 TAB_SPACES 			= 4
 TAB 				= "\t"

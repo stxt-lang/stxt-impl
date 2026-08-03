@@ -194,10 +194,17 @@ The boundary is **"language semantics"**, not "whatever stxt-js does".
    - [core/platform.txt](core/platform.txt): `isNatural` added; `isValidMinMax`
      removed (no consumers).
 
-## Pending, in recommended order
+10. ✅ **Traceability** (2026-08-03): new [TRACEABILITY.md](TRACEABILITY.md) — table
+    pseudocode file ↔ spec sections ↔ stxt-js source ↔ stxt-java class, per package,
+    plus the out-of-scope list and the known deliberate divergences (NULL provider
+    contract, 3-exception model, the addSchema/addTemplate bug flagged in stxt-js).
+    Every § reference in the `.txt` files verified against the section indexes of the
+    four specs; fixed `admitsChildren` (TEMPLATE §8.2, not §15) and added the missing
+    references to [core/constants.txt](core/constants.txt) and the multiple-root-nodes
+    note (§8.5) to [core/parser.txt](core/parser.txt).
 
-10. **Traceability**: spec section references in every file (mostly present, style
-    "STXT-SCHEMA-SPEC §9.1") and a table file ↔ stxt-js class ↔ stxt-java class.
+## Pending
+
 11. **Officialization** (last, once everything above is right): mention stxt-impl from
     stxt-web and the CLAUDE.md of js/java; consider adopting the shared versioning
     (js is at 0.6.0) so that "same version = same behavior" includes the pseudocode.
@@ -206,6 +213,7 @@ The boundary is **"language semantics"**, not "whatever stxt-js does".
 
 ```
 README.md                       Pseudocode style guide (§15: TRY/CATCH exceptions)
+TRACEABILITY.md                 File ↔ spec ↔ stxt-js ↔ stxt-java mapping + divergences
 core/
   constants.txt                 COMMENT_CHAR, TAB_SPACES=4, SEP_NODE, SEP_TEXT_NODE...
   line_indent.txt               parseLine: line → LineIndent (is_comment/is_block flags; MIXED_INDENTATION)
