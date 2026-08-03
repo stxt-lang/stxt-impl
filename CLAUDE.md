@@ -46,7 +46,7 @@ La frontera es **"semántica del lenguaje"**, no "lo que hace stxt-js".
   una propiedad semántica del lenguaje. **Pendiente de escribir.**
 - **Interfaces `Observer` y `Validator`** con sus puntos de enganche al parser — definen *cuándo*
   se procesa/valida un nodo (validación en streaming al cerrar cada nodo), que es comportamiento
-  observable. **Pendiente de escribir como contrato explícito.**
+  observable. ✅ Escritas en `processors/` (2026-08-03).
 
 **Fuera (libertad de diseño de cada port):**
 
@@ -90,49 +90,82 @@ stxt-js 0.6.0 (npm, 2026-08-02).
    `binaryValue(node)` (§9.5: en bloque, concatenación de líneas con trim por línea — el
    whitespace interior NO se ignora); HEXADECIMAL ya no admite prefijo `#` ni exige longitud par.
 
+4. ✅ **`ParseResult` / modo acumulador de errores** (2026-08-03): nuevo
+   [core/parse_result.txt](core/parse_result.txt); [core/parser.txt](core/parser.txt) reescrito
+   como clase `Parser` con `parse()` (fail-fast, delega en `parseResult()` y lanza el primer
+   error) y `parseResult()` (acumula errores sintácticos y de validación por línea con
+   `TRY/CATCH`; los errores inesperados se recogen como `UNEXPECTED_ERROR` /
+   `VALIDATION_ERROR`). Detalle de la spec §10.3: el salto de línea final termina la última
+   línea, no crea una línea vacía espuria en un bloque `>>` a fin de fichero.
+5. ✅ **Contratos `Observer` / `Validator`** (2026-08-03): nuevos
+   [processors/observer.txt](processors/observer.txt) (`onCreate`, `onFinish`, `onComment`,
+   `onTextLine`) y [processors/validator.txt](processors/validator.txt) (`validate(node)`
+   **devuelve** `ValidationException[]`, no lanza). Cambios arrastrados por el contrato y por
+   paridad con spec/js:
+   - [core/line_indent.txt](core/line_indent.txt): `LineIndent` ahora lleva `is_comment`,
+     `is_block` e `indent_length`; `parseLine` ya no devuelve NULL (el parser decide con los
+     flags, necesario para notificar comentarios y líneas de texto a los observers).
+   - [core/node.txt](core/node.txt) [EN]: validación de caracteres del nombre (`VALID_NAME`,
+     STXT-SPEC §4.2/§11.8, letras y dígitos Unicode + `-`, `_`, espacio); `getChild`/`getChildren`
+     filtran también por namespace (por defecto el del propio nodo); `AMBIGUOUS_CHILD`
+     (antes `MORE_THAN_ONE_CHILD`); **eliminado `freeze()`** — ni js ni java congelan nodos
+     (inmutabilidad por convención: mutable durante el parseo, solo lectura después).
+   - [schema/schema_validator.txt](schema/schema_validator.txt) [EN]: reescrito al contrato
+     acumulador; añadido **`validateChildrenDeclared`** (modelo de contenido cerrado,
+     STXT-SCHEMA-SPEC §6, código `CHILD_NOT_DECLARED` en la línea del hijo — antes faltaba);
+     máximo excedido → error en el padre y además en cada hijo sobrante.
+   - [core/platform.txt](core/platform.txt) [EN]: añadido `splitLines`; eliminados `freezeArray`
+     e `isHexDigit` (sin consumidores). [core/constants.txt](core/constants.txt): añadido
+     `SEP_TEXT_NODE = ">>"`.
+   - README.md: nueva sección 15 (Excepciones: `THROW`, `TRY`/`CATCH` tipado) y `pushAll` en
+     los métodos de array (secciones posteriores renumeradas).
+
 **Pendiente, en orden recomendado:**
 
-4. **`ParseResult` / modo acumulador de errores**: `parse()` es fail-fast; añadir la variante
-   `parseResult()` que acumula errores + nodos, como en js/java.
-5. **Contratos `Observer` / `Validator`**: nuevo fichero en `core/` (o `processors/`) definiendo
-   las interfaces (`onCreate`, `onTextLine`, `onComment`, `onFinish`; `validate` al cerrar nodo)
-   y el registro en el parser (`registerObserver` / `registerValidator`).
-6. **`discovery/`**: módulo nuevo completo según STXT-DISCOVERY-SPEC. Referencia: `src/discovery/`
+6. **Contrato `SchemaProvider.getSchema`**: en js devuelve `null`/`undefined` si no resuelve y
+   es `SchemaValidator` quien emite `SCHEMA_NOT_FOUND`; el pseudocódigo de
+   [schema/schema_provider.txt](schema/schema_provider.txt) lanza `NOT_FOUND_SCHEMA` desde el
+   provider. Alinear al revisar los providers (probablemente junto con el punto 7).
+7. **`discovery/`**: módulo nuevo completo según STXT-DISCOVERY-SPEC. Referencia: `src/discovery/`
    de stxt-js (diseño ya agnóstico: filesystem y entorno inyectados, errores coleccionados en vez
    de lanzados, precedencia por namespace, cadena `.stxt/` ancestros → usuario → sistema,
    override `STXT_PATH`, duplicados en el mismo nivel = error).
-7. **`NodeWriter`**: serialización a STXT con estilo de indentación (tabs | 4 espacios) y garantía
+8. **`NodeWriter`**: serialización a STXT con estilo de indentación (tabs | 4 espacios) y garantía
    de round-trip.
-8. **Traducción al inglés**: el repo debe quedar íntegramente en inglés — README.md (guía de
+9. **Traducción al inglés**: el repo debe quedar íntegramente en inglés — README.md (guía de
    estilo) y todos los comentarios de los ficheros `.txt` (hoy mezclan español e inglés).
-   Estrategia: los ficheros que se toquen en los puntos 1-7 se traducen al revisarlos; al final,
-   pasada de barrido sobre los que no se hayan tocado, README.md y este CLAUDE.md.
-9. **Trazabilidad**: referencias a secciones de la spec en cada fichero (ya hay alguna, estilo
-   "STXT-SCHEMA-SPEC §9.1") y una tabla fichero ↔ clase stxt-js ↔ clase stxt-java.
-10. **Oficialización** (al final, cuando todo lo anterior esté bien): mencionar stxt-impl desde
+   Estrategia: los ficheros que se toquen se traducen al revisarlos; al final, pasada de barrido
+   sobre los que no se hayan tocado, README.md y este CLAUDE.md.
+10. **Trazabilidad**: referencias a secciones de la spec en cada fichero (ya hay alguna, estilo
+    "STXT-SCHEMA-SPEC §9.1") y una tabla fichero ↔ clase stxt-js ↔ clase stxt-java.
+11. **Oficialización** (al final, cuando todo lo anterior esté bien): mencionar stxt-impl desde
     stxt-web y los CLAUDE.md de js/java; valorar adoptar el versionado común (js va por 0.6.0)
     para que "misma versión = mismo comportamiento" incluya el pseudocódigo.
 
 ## Estructura actual
 
 ```
-README.md                       Guía de estilo del pseudolenguaje
+README.md                       Guía de estilo del pseudolenguaje (§15: excepciones TRY/CATCH)
 core/
-  constants.txt                 COMMENT_CHAR, TAB_SPACES=4, separadores...
-  line_indent.txt               parseLine: indentación → LineIndent (incluye MIXED_INDENTATION) [EN]
+  constants.txt                 COMMENT_CHAR, TAB_SPACES=4, SEP_NODE, SEP_TEXT_NODE... [EN]
+  line_indent.txt               parseLine: línea → LineIndent (flags is_comment/is_block; MIXED_INDENTATION) [EN]
   name_namespace.txt            NameNamespaceParser: "Nombre (ns)" → (name, namespace)
-  node.txt                      Clase Node (árbol inmutable tras freeze)
-  parser.txt                    parse(): pila de nodos abiertos por nivel
-  platform.txt                  Funciones dependientes de plataforma (declaradas, sin cuerpo)
+  node.txt                      Clase Node (VALID_NAME §4.2; mutable al parsear, luego solo lectura) [EN]
+  parse_result.txt              ParseResult: nodos raíz + errores acumulados [EN]
+  parser.txt                    Clase Parser: parse()/parseResult(), hooks, pila por niveles [EN]
+  platform.txt                  Funciones dependientes de plataforma (declaradas, sin cuerpo) [EN]
   string_utils.txt              Utilidades de cadena (normalizeChars = nombre canónico §4.3) [EN]
   validations.txt               validateNamespaceFormat
+processors/
+  observer.txt                  INTERFACE Observer: onCreate/onFinish/onComment/onTextLine [EN]
+  validator.txt                 INTERFACE Validator: validate(node) → ValidationException[] [EN]
 schema/
   schema.txt                    Schema: namespace + NodeDefinitions
   node_definition.txt           NodeDefinition: tipo, hijos, valores ENUM
   child_definition.txt          ChildDefinition: cardinalidad min/max
   schema_parser.txt             Documento @stxt.schema → Schema
   schema_provider.txt           SchemaProvider + Cache + Resources + Meta (bootstrap)
-  schema_validator.txt          Valida nodo contra schema (tipo + cardinalidades, sin orden)
+  schema_validator.txt          Valida nodo contra schema (tipo + modelo cerrado + cardinalidades, sin orden) [EN]
   types.txt                     TypeRegistry + los 18 tipos de la spec + binaryValue (§9.5) [EN]
 template/
   template_parser.txt           Documento @stxt.template → Schema

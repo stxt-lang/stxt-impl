@@ -35,6 +35,14 @@ END
 NULL
 CONSTRUCTOR
 IS
+FIELD
+CONSTANT
+INTERFACE
+IMPLEMENTS
+EXTENDS
+THROW
+TRY
+CATCH
 ```
 
 Para mejorar la legibilidad, se recomienda usar finales explícitos:
@@ -117,6 +125,7 @@ Suponemos que array también tiene los siguentes métodos:
 
 * length()
 * push(valor)
+* pushAll(array): Añade todos los valores de otro array al final
 * pop(): Recupera y elimina el último valor
 * last(): Recupera el último valor
 * Se recupera un valor con nombre_variable[posicion]
@@ -345,7 +354,30 @@ END FOREACH
 
 ---
 
-## 15. Comentarios
+## 15. Excepciones
+
+Las excepciones se lanzan con `THROW` y se capturan con `TRY` / `CATCH`.
+
+* Puede haber varios bloques `CATCH`, del más específico al más general.
+* La variable capturada puede tiparse con `nombre: TipoExcepcion`; sin tipo, captura cualquier excepción.
+* Toda excepción tiene `getMessage()`. Las excepciones de STXT llevan además un código de error
+  en MAYÚSCULAS, que debe coincidir entre implementaciones.
+
+**Ejemplo:**
+
+```text
+TRY
+    processLine(line)
+CATCH pe: ParseException
+    result.addError(pe)
+CATCH e
+    result.addError(ParseException(line_number, "UNEXPECTED_ERROR", e.getMessage()))
+END TRY
+```
+
+---
+
+## 16. Comentarios
 
 Los comentarios se utilizan para explicar intención o contexto, no para describir lo obvio.
 
@@ -362,7 +394,7 @@ Los comentarios se utilizan para explicar intención o contexto, no para describ
 
 ---
 
-## 16. Ejemplo completo
+## 17. Ejemplo completo
 
 ```text
 CLASS Order
@@ -401,7 +433,7 @@ END FUNCTION
 
 ---
 
-## 17. Principios clave
+## 18. Principios clave
 
 * Consistencia antes que exhaustividad.
 * Claridad antes que brevedad.

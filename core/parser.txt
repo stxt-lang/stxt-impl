@@ -1,83 +1,191 @@
-FUNCTION parse(content: STRING): Node[]
-    content = removeUTF8BOM(content)
+# Parser: line-by-line STXT parsing engine. It knows nothing about schemas: semantic
+# validation is plugged in through registerValidator() and observation through
+# registerObserver() (see processors/).
+#
+# Algorithm: a stack of open nodes, one per indentation level (the size of the stack is
+# the level of the next line). When a line at level N arrives, every node deeper than N
+# is closed (validated, attached to its parent and notified to the observers), and the
+# new node is pushed onto the stack, still open.
+#
+# Two modes:
+#   * parse():       traditional fail-fast, throws the first error found.
+#   * parseResult(): multi-error, collects every error (syntax and validation) in a
+#                    ParseResult without bailing out on the first one.
 
-    stack: Node[] = []
-    documents: Node[] = []
-    line_number: INTEGER = 0
+CLASS Parser
 
-	# Iterate lines
-    FOREACH line IN content
-		line_number = line_number + 1
-        processLine(line, line_number, stack, documents)
-	END FOREACH
+    FIELD observers: Observer[] = []
+    FIELD validators: Validator[] = []
 
-    # Close all pending nodes
-    closeToLevel(stack, documents, 0)
+    # Registers an observer, notified when each node is opened and closed, and for
+    # every comment and text line.
+    PROCEDURE registerObserver(observer: Observer)
+        observers.push(observer)
+    END PROCEDURE
 
-    RETURN documents
-END FUNCTION
+    # Registers a validator, invoked when each node is closed.
+    PROCEDURE registerValidator(validator: Validator)
+        validators.push(validator)
+    END PROCEDURE
 
-PROCEDURE processLine(line, line_number, stack, documents)
+    # Traditional fail-fast mode: throws the first error found (either syntax or
+    # validation). It reuses the same traversal as parseResult().
+    FUNCTION parse(content: STRING): Node[]
+        result: ParseResult = parseResult(content)
 
-    last_node = NULL
-    IF stack.isEmpty() == false
-        last_node = stack.last()
-    END IF
-
-    last_level: INTEGER = 0
-    IF last_node IS NOT NULL
-        last_level = last_node.getLevel()
-    END IF
-
-    last_node_block = last_node IS NOT NULL AND last_node.isTextNode()
-
-    # Parse line indentation / comment / empty line
-    line_indent = parseLine(line, last_node_block, last_level, line_number)
-
-    IF line_indent IS NULL
-        RETURN
-    END IF
-
-    current_level = line_indent.indent_level
-
-    # If we are inside a text node and indentation indicates it is still text,
-    # append text line and do not create a new node.
-    IF last_node_block AND current_level > last_level
-        last_node.text_lines.push(line_indent.line_without_indent)
-        RETURN
-    END IF
-
-    # Close nodes up to current level (finalizes nodes and attaches them)
-    closeToLevel(stack, documents, current_level)
-
-    # Create new node and keep it open in the stack (not attached yet)
-    parent: Node = NULL
-    IF NOT stack.isEmpty()
-        parent = stack.last()
-    END IF
-
-    node: Node = createNode(line_indent, line_number, current_level, parent)
-
-    stack.push(node)
-END PROCEDURE
-
-PROCEDURE closeToLevel(stack: DEQUE<Node>, documents: LIST<Node>, target_level: INTEGER)
-
-    WHILE stack.size() > target_level
-
-        completed: Node = stack.pop()
-        completed.freeze()
-
-        IF stack.isEmpty()
-            documents.add(completed)
-        ELSE
-            stack.last().children.push(completed)
+        IF result.hasErrors()
+            THROW result.getErrors()[0]
         END IF
 
-    END WHILE
+        RETURN result.getNodes()
+    END FUNCTION
 
-END PROCEDURE
+    # Multi-error mode: parses the whole content collecting every error found
+    # (both syntax and validation) without bailing out on the first one.
+    FUNCTION parseResult(content: STRING): ParseResult
+        content = removeUTF8BOM(content)
 
+        result: ParseResult = ParseResult()
+        stack: Node[] = []
+        documents: Node[] = []
+        line_number: INTEGER = 0
+
+        lines: STRING[] = splitLines(content)
+
+        # The final line break terminates the last line, it is not an extra empty line
+        # (this avoids adding a spurious line to a '>>' block at EOF, STXT-SPEC §10.3)
+        IF lines.length() > 0 AND lines.last() == ""
+            lines.pop()
+        END IF
+
+        FOREACH line IN lines
+            line_number = line_number + 1
+            processLine(line, line_number, stack, documents, result)
+        END FOREACH
+
+        # Close every node still open at EOF
+        closeToLevel(stack, documents, 0, result)
+
+        # Add the root nodes to the result
+        FOREACH doc IN documents
+            result.addNode(doc)
+        END FOREACH
+
+        RETURN result
+    END FUNCTION
+
+    # Processes one source line. Errors of this line are collected into the result;
+    # the traversal continues with the next line.
+    PROCEDURE processLine(line_string, line_number, stack, documents, result)
+        TRY
+            last_node: Node = NULL
+            IF NOT stack.isEmpty()
+                last_node = stack.last()
+            END IF
+
+            last_level: INTEGER = 0
+            IF last_node IS NOT NULL
+                last_level = last_node.getLevel()
+            END IF
+
+            last_node_block = last_node IS NOT NULL AND last_node.isTextNode()
+
+            # Split the line into indentation and content
+            line_indent: LineIndent = parseLine(line_string, last_node_block, last_level, line_number)
+
+            # Comment line: produces no node, hand it over to the observers
+            IF line_indent.is_comment
+                FOREACH observer IN observers
+                    observer.onComment(line_number, line_string)
+                END FOREACH
+                RETURN
+            END IF
+
+            # Text line of an open BLOCK node: append it instead of creating a node
+            IF line_indent.is_block
+                last_node.addTextLine(line_indent.line_without_indent)
+
+                FOREACH observer IN observers
+                    observer.onTextLine(last_node, line_number, line_string, line_indent)
+                END FOREACH
+                RETURN
+            END IF
+
+            # Empty lines outside a block are ignored
+            IF line_indent.isEmpty()
+                RETURN
+            END IF
+
+            current_level = line_indent.indent_level
+
+            # Close nodes down to the current level (finalizes them and attaches them)
+            closeToLevel(stack, documents, current_level, result)
+
+            # Create the new node and keep it open on the stack (not attached yet)
+            parent: Node = NULL
+            IF NOT stack.isEmpty()
+                parent = stack.last()
+            END IF
+
+            node: Node = createNode(line_indent, line_number, current_level, parent)
+
+            # Hand it over to the observers
+            FOREACH observer IN observers
+                observer.onCreate(node, line_string)
+            END FOREACH
+
+            stack.push(node)
+
+        CATCH pe: ParseException
+            result.addError(pe)
+        CATCH e
+            # Unexpected platform error: collected as a ParseException
+            result.addError(ParseException(line_number, "UNEXPECTED_ERROR", e.getMessage()))
+        END TRY
+    END PROCEDURE
+
+    # Closes every node deeper than target_level: runs the validators over it, attaches
+    # it to its parent (or to the documents if it is a root) and notifies the observers.
+    PROCEDURE closeToLevel(stack: Node[], documents: Node[], target_level: INTEGER, result: ParseResult)
+
+        WHILE stack.size() > target_level
+
+            completed: Node = stack.pop()
+
+            # Hand it over to the validators: they return errors, they do not throw
+            FOREACH validator IN validators
+                TRY
+                    errors: ValidationException[] = validator.validate(completed)
+                    FOREACH error IN errors
+                        result.addError(error)
+                    END FOREACH
+                CATCH pe: ParseException
+                    result.addError(pe)
+                CATCH e
+                    # A validator that throws unexpectedly does not abort the parse
+                    result.addError(ParseException(completed.getLine(), "VALIDATION_ERROR", e.getMessage()))
+                END TRY
+            END FOREACH
+
+            IF stack.isEmpty()
+                documents.push(completed)
+            ELSE
+                stack.last().addChild(completed)
+            END IF
+
+            # Hand it over to the observers
+            FOREACH observer IN observers
+                observer.onFinish(completed)
+            END FOREACH
+
+        END WHILE
+
+    END PROCEDURE
+
+END CLASS
+
+# Builds the node a line opens, telling apart the INLINE form ("Name: value") from the
+# BLOCK one ("Name >>") and resolving the namespace against the parent.
 FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER, level: INTEGER, parent: Node): Node
 
     line: STRING = line_indent.line_without_indent
@@ -86,8 +194,8 @@ FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER, level: INTEGE
     value = NULL
     is_text_node = false
 
-    node_index: INTEGER = line.indexOf(':')
-    text_index: INTEGER = line.indexOf(">>")
+    node_index: INTEGER = line.indexOf(SEP_NODE)
+    text_index: INTEGER = line.indexOf(SEP_TEXT_NODE)
 
     IF node_index == -1 AND text_index == -1
         THROW ParseException(line_number, "INVALID_LINE", "Line not valid: " + line)
@@ -107,18 +215,18 @@ FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER, level: INTEGE
 
     IF is_text_node
         name = line.substring(0, text_index)
-        value = line.substring(text_index + 2)
+        value = line.substring(text_index + SEP_TEXT_NODE.length())
     ELSE
         name = line.substring(0, node_index)
-        value = line.substring(node_index + 1)
+        value = line.substring(node_index + SEP_NODE.length())
     END IF
 
+    # A '>>' node cannot carry significant inline content on the same line (§11.4)
     IF is_text_node AND NOT value.trim().isEmpty()
         THROW ParseException(line_number, "INLINE_VALUE_NOT_VALID", "Line not valid: " + line)
     END IF
 
-
-    # Default namespace: inherited from parent
+    # Default namespace: inherited from the parent
     parent_namespace: STRING = NULL
     IF parent IS NOT NULL
         parent_namespace = parent.getNamespace()
@@ -129,7 +237,7 @@ FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER, level: INTEGE
     name = nn.getName()
     namespace: STRING = nn.getNamespace()
 
-    # Validate name
+    # Validate the name
     IF name.isEmpty()
         THROW ParseException(line_number, "INVALID_LINE", "Line not valid: " + line)
     END IF

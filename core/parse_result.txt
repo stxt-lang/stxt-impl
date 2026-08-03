@@ -1,0 +1,37 @@
+# ParseResult: result of a parse in multi-error mode. It collects the root nodes
+# obtained and every error found (both syntax and validation ones), without bailing
+# out on the first one.
+#
+# See Parser.parseResult(). For the traditional fail-fast mode use Parser.parse(),
+# which internally uses this result and throws the first error.
+
+CLASS ParseResult
+
+    FIELD nodes: Node[] = []
+    FIELD errors: ParseException[] = []
+
+    # Root nodes collected so far.
+    FUNCTION getNodes(): Node[]
+        RETURN nodes
+    END FUNCTION
+
+    # Syntax or validation errors collected so far, in order of appearance.
+    FUNCTION getErrors(): ParseException[]
+        RETURN errors
+    END FUNCTION
+
+    FUNCTION hasErrors(): BOOLEAN
+        RETURN errors.length() > 0
+    END FUNCTION
+
+    # Adds an error found while parsing, without aborting the traversal.
+    PROCEDURE addError(error: ParseException)
+        errors.push(error)
+    END PROCEDURE
+
+    # Adds an already closed root node to the result.
+    PROCEDURE addNode(node: Node)
+        nodes.push(node)
+    END PROCEDURE
+
+END CLASS

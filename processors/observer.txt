@@ -1,0 +1,25 @@
+# Observer: process hook notified by the Parser while parsing, in streaming: when each
+# node is opened and closed, and for every comment and text line it reads. Register it
+# with Parser.registerObserver().
+#
+# Typical uses: syntax highlighting, indexing, incremental processing of large documents.
+# Observers MUST NOT modify the nodes they receive.
+
+INTERFACE Observer
+
+    # Called when a node is opened (its children and its text lines are not complete yet).
+    # line_string is the source line that opened the node, as it appears in the document.
+    PROCEDURE onCreate(node: Node, line_string: STRING)
+
+    # Called when a node is closed, with all its children and its value already complete.
+    PROCEDURE onFinish(node: Node)
+
+    # Called for every comment line, which produces no node.
+    PROCEDURE onComment(line_number: INTEGER, line_string: STRING)
+
+    # Called for every text line appended to an open BLOCK node.
+    # line_string is the source line; line_indent is the same line already split
+    # into indentation and content.
+    PROCEDURE onTextLine(node: Node, line_number: INTEGER, line_string: STRING, line_indent: LineIndent)
+
+END INTERFACE

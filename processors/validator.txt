@@ -1,0 +1,14 @@
+# Validator: process hook invoked by the Parser when each node is closed, to validate
+# in streaming. Register it with Parser.registerValidator().
+#
+# The parser core knows nothing about schemas: semantic validation (see
+# schema/schema_validator.txt) is plugged in through this interface.
+
+INTERFACE Validator
+
+    # Validates an already closed node and returns every error found (WITHOUT throwing),
+    # letting the caller collect errors from several nodes instead of bailing out on the
+    # first one. An empty array means the node is valid.
+    FUNCTION validate(node: Node): ValidationException[]
+
+END INTERFACE

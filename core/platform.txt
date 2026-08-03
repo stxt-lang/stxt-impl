@@ -1,29 +1,26 @@
-# Platform: utilidades dependientes del lenguaje/plataforma de implementación.
+# Platform: utilities that depend on the implementation language/platform.
+# Every port MUST provide an equivalent of these functions.
 
-# Devuelve una vista o copia inmutable del array (no se podrá modificar tras congelar).
-FUNCTION freezeArray(array)
+# Splits the content into lines, accepting both "\n" and "\r\n" as line breaks.
+FUNCTION splitLines(str: STRING): STRING[]
 END FUNCTION
 
-# true si str representa un entero válido (admite signo). Equivale a poder hacer parseInteger.
+# true if str represents a valid integer (sign allowed). Equivalent to "parseInteger would succeed".
 FUNCTION isInteger(str: STRING): BOOLEAN
 END FUNCTION
 
-# Convierte str en INTEGER. Sólo debe llamarse cuando isInteger(str) es true.
+# Converts str into an INTEGER. MUST only be called when isInteger(str) is true.
 FUNCTION parseInteger(str: STRING): INTEGER
 END FUNCTION
 
-# true si "min,max" son dos enteros válidos. Usado por el parser de cardinalidad de templates.
+# true if "min,max" are two valid integers. Used by the template cardinality parser.
 FUNCTION isValidMinMax(str: STRING): BOOLEAN
 END FUNCTION
 
-# true si c es un dígito hexadecimal [0-9A-Fa-f].
-FUNCTION isHexDigit(c: CHAR): BOOLEAN
-END FUNCTION
-
-# Parsea una URI. Devuelve un objeto con getScheme()/getHost(), o NULL si no es válida.
+# Parses a URI. Returns an object with getScheme()/getHost(), or NULL if not valid.
 FUNCTION parseURI(str: STRING)
 END FUNCTION
 
-# true si str es contenido Base64 decodificable.
+# true if str is decodable Base64 content.
 FUNCTION isValidBase64(str: STRING): BOOLEAN
 END FUNCTION
