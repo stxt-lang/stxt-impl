@@ -198,6 +198,10 @@ PaymentService
 UserRepository
 ```
 
+A class name may coincide with a basic type name (§4.1) when mirroring a domain
+concept (e.g. the schema value types `BOOLEAN` or `INTEGER`): context disambiguates —
+`x: INTEGER` is a type annotation, `CLASS INTEGER` declares a class.
+
 ---
 
 ## 7. Assignment

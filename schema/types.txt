@@ -39,7 +39,7 @@ CLASS TypeRegistry
         register(MARKDOWN)
         register(BOOLEAN)
         register(URL)
-        register(INTEGER_TYPE)      # "INTEGER" type (class renamed to avoid clashing with the basic INTEGER type)
+        register(INTEGER)
         register(NATURAL)
         register(NUMBER)
         register(DATE)
@@ -233,8 +233,10 @@ CLASS NUMBER EXTENDS RegexValue
     END FUNCTION
 END CLASS
 
-# INTEGER: integer with an optional sign
-CLASS INTEGER_TYPE EXTENDS RegexValue
+# INTEGER: integer with an optional sign.
+# (Like BOOLEAN, the class name coincides with a basic pseudocode type: that is fine,
+# context disambiguates — "x: INTEGER" is an annotation, this is a schema value type.)
+CLASS INTEGER EXTENDS RegexValue
     FIELD P_INTEGER: REGEX = "^[-+]?\\d+$"
     CONSTRUCTOR ()
         super(P_INTEGER, "Invalid integer")
