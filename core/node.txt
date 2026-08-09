@@ -6,9 +6,6 @@
 
 CLASS Node
 
-    # STXT-SPEC §4.2: Unicode letters and digits (categories L and Nd) plus '-', '_' and space
-    CONSTANT VALID_NAME: REGEX = "^[\\p{L}\\p{Nd}\\-_ ]+$"
-
     # Basic fields
     FIELD line: INTEGER
     FIELD level: INTEGER
@@ -51,13 +48,9 @@ CLASS Node
             THROW RuntimeException("INLINE_VALUE_NOT_VALID", "Not empty value with block text")
         END IF
 
-        # Allowed name characters (STXT-SPEC §4.2, error rule §11.8)
-        IF NOT VALID_NAME.matches(name)
-            THROW ParseException(line, "INVALID_NODE_NAME", "Node name contains invalid characters: " + name)
-        END IF
-
-        # An empty canonical name (e.g. "___") is invalid (STXT-SPEC §4.3, §11.7)
-        IF isEmpty(normalized_name)
+        # STXT-SPEC §4.2 / §4.3. The shared check validates after NFC, so equivalent
+        # precomposed and decomposed Unicode spellings are both accepted.
+        IF NOT isValidNodeName(name)
             THROW ParseException(line, "INVALID_NODE_NAME", "Node name not valid: " + name)
         END IF
     END CONSTRUCTOR

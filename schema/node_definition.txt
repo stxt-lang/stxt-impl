@@ -21,7 +21,9 @@ CLASS NodeDefinition
         type            = type
         description     = description
 
-        IF isEmpty(normalized_name)
+        # The inline value of Schema/Node MUST itself be a valid STXT node name
+        # (STXT-SCHEMA-SPEC §7.1), not merely a non-empty canonical string.
+        IF NOT isValidNodeName(name)
             THROW ValidationException(line, "INVALID_NODE_NAME", "Node name not valid: " + name)
         END IF
     END CONSTRUCTOR

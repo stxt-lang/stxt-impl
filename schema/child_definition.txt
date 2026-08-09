@@ -20,7 +20,9 @@ CLASS ChildDefinition
         # The namespace of the child (inherited or explicit) MUST be valid
         validateNamespaceFormat(namespace, line)
 
-        IF isEmpty(normalized_name)
+        # A Child name is a node name too, so apply the same full STXT name rules
+        # as the core parser and NodeDefinition.
+        IF NOT isValidNodeName(name)
             THROW ValidationException(line, "INVALID_NODE_NAME", "Node name not valid: " + name)
         END IF
     END CONSTRUCTOR

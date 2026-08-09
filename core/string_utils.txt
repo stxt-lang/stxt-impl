@@ -1,5 +1,11 @@
 # String utilities. Unless stated otherwise, they take a STRING and return a STRING.
 
+# Unicode NFC normalization. It unifies the precomposed and decomposed forms of the
+# same character (for example, "é" and "e" + combining acute accent). A port MUST
+# use Unicode NFC, independently of its current locale.
+FUNCTION normalizeNFC (str)
+END FUNCTION
+
 # Trim + collapse of every inner whitespace run into a single space. Used for node names.
 FUNCTION compactSpaces (str)
 END FUNCTION

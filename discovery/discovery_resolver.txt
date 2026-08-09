@@ -139,10 +139,9 @@ CLASS DiscoveryResolver
         END IF
 
         level: DiscoveryLevel = DiscoveryLevel(dir)
-        conflicted: STRING[] = []
 
         FOREACH file IN collectFiles(dir)
-            loadFile(file, level, conflicted)
+            loadFile(file, level)
         END FOREACH
 
         level_cache.put(dir, level)
@@ -169,7 +168,7 @@ CLASS DiscoveryResolver
 
     # Loads one file of a level: parses it and registers every root as a definition,
     # reporting the errors of §8.
-    PROCEDURE loadFile(file: STRING, level: DiscoveryLevel, conflicted: STRING[])
+    PROCEDURE loadFile(file: STRING, level: DiscoveryLevel)
 
         # §3: every file under a resolution directory must be a definition
         IF NOT endsWith(file, STXT_EXTENSION)
@@ -195,13 +194,13 @@ CLASS DiscoveryResolver
         END IF
 
         FOREACH node IN nodes
-            loadRootNode(node, file, level, conflicted)
+            loadRootNode(node, file, level)
         END FOREACH
     END PROCEDURE
 
     # Validates one root node against its meta-schema, compiles it to a schema and
     # registers it in the level, detecting same-level duplicates.
-    PROCEDURE loadRootNode(node: Node, file: STRING, level: DiscoveryLevel, conflicted: STRING[])
+    PROCEDURE loadRootNode(node: Node, file: STRING, level: DiscoveryLevel)
 
         namespace: STRING = node.getNamespace()
         schema: Schema = NULL
@@ -225,14 +224,15 @@ CLASS DiscoveryResolver
         key: STRING = lowerCase(schema.getNamespace())
 
         # §8.1: on a same-level duplicate, NEVER silently pick one of the definitions —
-        # the namespace has no active definition while the conflict exists.
-        IF conflicted.contains(key) OR level.definitions.containsKey(key)
+        # the namespace has no active definition while the conflict exists, including
+        # definitions at more distant levels.
+        IF level.conflicted_namespaces.contains(key) OR level.definitions.containsKey(key)
 
             first_file: STRING = "another file of this level"
             IF level.definitions.containsKey(key)
                 first_file = level.definitions[key].file
                 level.definitions.remove(key)
-                conflicted.push(key)
+                level.conflicted_namespaces.push(key)
             END IF
 
             level.errors.push(DiscoveryError(DiscoveryError.DUPLICATE_NAMESPACE, file,

@@ -20,6 +20,9 @@ END CLASS
 CLASS DiscoveryLevel
     FIELD dir: STRING                                      # full path of the resolution directory
     FIELD definitions: MAP<STRING, DiscoveryDefinition> = {}
+    # Target namespaces with two or more definitions in this level. They are kept
+    # separately from definitions because a conflict blocks fallback to lower levels.
+    FIELD conflicted_namespaces: STRING[] = []
     FIELD errors: DiscoveryError[] = []
 END CLASS
 
@@ -60,6 +63,13 @@ CLASS DiscoveryResult IMPLEMENTS SchemaProvider
         key: STRING = lowerCase(namespace)
 
         FOREACH level IN levels
+            # STXT-DISCOVERY-SPEC §8: a same-level conflict leaves this namespace
+            # without an active definition. In particular, do not fall back to a
+            # definition from a more distant level.
+            IF level.conflicted_namespaces.contains(key)
+                RETURN NULL
+            END IF
+
             IF level.definitions.containsKey(key)
                 RETURN level.definitions[key]
             END IF
@@ -75,6 +85,13 @@ CLASS DiscoveryResult IMPLEMENTS SchemaProvider
         result: DiscoveryDefinition[] = []
 
         FOREACH level IN levels
+            # A nearer conflict blocks the namespace entirely, just like getDefinition().
+            FOREACH key IN level.conflicted_namespaces
+                IF NOT seen.contains(key)
+                    seen.push(key)
+                END IF
+            END FOREACH
+
             FOREACH key IN level.definitions.keys()
                 IF NOT seen.contains(key)
                     seen.push(key)

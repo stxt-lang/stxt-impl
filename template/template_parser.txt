@@ -57,6 +57,14 @@ END FUNCTION
 # Adds to the schema the definition a Structure node declares, along with its children.
 PROCEDURE addToSchema(schema: Schema, node: Node)
 
+    # A Structure line belongs to the template grammar, not merely to the core
+    # grammar. In particular it MUST use ':'; a core BLOCK node ('>>') is invalid
+    # here even when its text happens to be empty (STXT-TEMPLATE-SPEC §6.3).
+    IF node.isTextNode()
+        THROW ValidationException(node.getLine(), "INVALID_CHILD_LINE",
+            "Template Structure lines must use ':'")
+    END IF
+
     namespace: STRING = node.getNamespace()
     name: STRING      = node.getName()
 

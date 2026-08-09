@@ -5,6 +5,33 @@
 #   * Valid examples: "a.b", "com.example.docs", "@stxt.schema".
 CONSTANT NAMESPACE_FORMAT: REGEX = "^@?[a-z0-9]+(\\.[a-z0-9]+)+$"
 
+# STXT-SPEC §4.2 / §4.3: names contain Unicode letters and decimal digits plus the
+# three ASCII separators. The character check is deliberately made AFTER NFC: the
+# decomposed spelling "e" + combining acute is a valid spelling of "é" and must not
+# be rejected before canonicalization.
+CONSTANT NODE_NAME_FORMAT: REGEX = "^[\\p{L}\\p{Nd}\\-_ ]+$"
+
+# Checks whether a logical node name is valid in a source document, schema or
+# template. The caller chooses whether the resulting error is syntactic
+# (ParseException) or semantic (ValidationException).
+FUNCTION isValidNodeName(name: STRING): BOOLEAN
+
+    IF name IS NULL
+        RETURN false
+    END IF
+
+    logical_name: STRING = compactSpaces(name)
+    nfc_name: STRING = normalizeNFC(logical_name)
+
+    IF NOT NODE_NAME_FORMAT.matches(nfc_name)
+        RETURN false
+    END IF
+
+    # A string made only of separators (for example "___") has no logical name.
+    RETURN NOT isEmpty(normalizeChars(nfc_name))
+
+END FUNCTION
+
 # Validates the format of an already lower-cased namespace.
 # An empty or NULL namespace is ignored (nodes without namespace are legal).
 PROCEDURE validateNamespaceFormat(namespace: STRING, line_number: INTEGER)
