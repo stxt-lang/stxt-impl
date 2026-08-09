@@ -1,0 +1,57 @@
+# TreeJson: canonical JSON representation of parsed STXT documents.
+#
+# STXT-TREE-SPEC defines a representation of the logical tree, not the source file.
+# It deliberately excludes line/level metadata, comments, indentation style and derived
+# fields such as qualified_name or joined text. The outer JSON value is always an array
+# because an STXT document can have several root nodes.
+#
+# Location note: stxt-js and stxt-java host this class in their "runtime" package.
+
+CLASS TreeJson
+
+    # Converts all root nodes of a parsed document to the canonical JSON data model.
+    FUNCTION toCanonicalTree(docs: Node[]): MAP[]
+        result: MAP[] = []
+
+        FOREACH node IN docs
+            result.push(toCanonicalNode(node))
+        END FOREACH
+
+        RETURN result
+    END FUNCTION
+
+    # Serializes the canonical data model with the JSON support of the host platform.
+    # JSON formatting and object-member order are not semantic; callers may choose a
+    # deterministic presentation for people.
+    FUNCTION toCanonicalJson(docs: Node[]): STRING
+        RETURN jsonEncode(toCanonicalTree(docs))
+    END FUNCTION
+
+    FUNCTION toCanonicalNode(node: Node): MAP
+        IF node.isTextNode()
+            # Copy the lines exactly, including empty and trailing empty lines.
+            RETURN {
+                "name": node.getName(),
+                "canonicalName": node.getNormalizedName(),
+                "namespace": node.getNamespace(),
+                "form": "block",
+                "lines": copy(node.getTextLines())
+            }
+        END IF
+
+        children: MAP[] = []
+        FOREACH child IN node.getChildren()
+            children.push(toCanonicalNode(child))
+        END FOREACH
+
+        RETURN {
+            "name": node.getName(),
+            "canonicalName": node.getNormalizedName(),
+            "namespace": node.getNamespace(),
+            "form": "inline",
+            "value": node.getValue(),
+            "children": children
+        }
+    END FUNCTION
+
+END CLASS
