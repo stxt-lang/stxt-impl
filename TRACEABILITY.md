@@ -14,8 +14,8 @@ into platform-neutral algorithms and data contracts. A port must be corrected wh
 disagrees with either one; this document does not create independent language rules.
 
 The canonical specifications are `../stxt-web/es/stxt-*-ref.stxt`. At the time of this
-map, STXT-SPEC and STXT-TREE-SPEC have `Last modif: 2026-08-09`; schema, template and
-discovery specifications have `Last modif: 2026-08-02`.
+map, STXT-SPEC has `Last modif: 2026-08-10`, STXT-TREE-SPEC has `Last modif: 2026-08-09`;
+schema, template and discovery specifications have `Last modif: 2026-08-02`.
 
 ## Scope
 
