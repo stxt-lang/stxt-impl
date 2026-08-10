@@ -91,7 +91,7 @@ collect resolution errors without throwing away unrelated definitions.
 |---|---|
 | TypeScript discovery | Reference implementation since 0.6.0. |
 | Java discovery | Not implemented yet; Java is therefore not yet conformant with STXT-DISCOVERY-SPEC. |
-| Java name canonicalization | Known divergence: it still removes diacritics, contrary to STXT-SPEC and this pseudocode. |
+| Java name canonicalization | Aligned: NFC normalization preserves diacritics and treats decomposed and precomposed forms as equivalent. |
 | Java exception hierarchy | Port-specific hierarchy; its stable error codes must still agree with this blueprint. |
 | Caches, filesystem/environment adapters and public facades | Intentionally left to each port. |
 
@@ -104,8 +104,9 @@ The spec-to-pseudocode review corrected four mismatches:
 3. Template `Structure` lines now reject the core BLOCK (`>>`) form and require `:`.
 4. A same-level discovery conflict now blocks fallback to a more distant definition.
 
-Ports must add or retain conformance tests for those four cases before they are
-considered aligned with this revision.
+The TypeScript port covers all five cases in `core.test.ts`, `providers.test.ts` and
+`discovery.test.ts`. The Java port covers the first four in `NodeNameValidationTest`,
+`SchemaParserTest` and `TemplateParserTest`; discovery remains outside its implemented scope.
 
 ## Required regression cases
 
