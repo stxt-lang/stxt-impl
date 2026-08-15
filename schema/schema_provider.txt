@@ -5,6 +5,16 @@
 # (typically SchemaValidator) who reports SCHEMA_NOT_FOUND when the resolution ends
 # in NULL. This keeps providers composable (fallback chains, discovery).
 #
+# The rule has no exceptions. It applies to the meta providers (SchemaProviderMeta and
+# the meta-template provider return NULL for any namespace but their own), to any
+# provider that loads definitions from an external store (a missing resource is "no
+# schema for this namespace", not an error: catch the store's own not-found and return
+# NULL), and to any composing provider (fallback, cache, chain): the miss of one member
+# is a normal step, not an exception. Consequently RESOURCE_NOT_FOUND, or any other
+# not-found code, never surfaces from a SchemaProvider; the only code a user sees for
+# "no schema" is SCHEMA_NOT_FOUND, emitted once, by SchemaValidator, as a validation
+# finding of the node (never thrown). Aligned in stxt-js and stxt-java on 2026-08-15.
+#
 # Composable implementations: SchemaProviderMemory (registered schemas + parent
 # fallback), SchemaProviderMeta (the embedded meta-schema), DiscoveryResult (see
 # discovery/), TemplateSchemaProviderMemory (see template/).

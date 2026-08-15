@@ -93,6 +93,7 @@ collect resolution errors without throwing away unrelated definitions.
 | Java discovery | Not implemented yet; Java is therefore not yet conformant with STXT-DISCOVERY-SPEC. |
 | Java name canonicalization | Aligned: NFC normalization preserves diacritics and treats decomposed and precomposed forms as equivalent. |
 | Java exception hierarchy | Port-specific hierarchy; its stable error codes must still agree with this blueprint. |
+| `SchemaProvider` not-found contract | Aligned on 2026-08-15 in both ports: providers return NULL, never throw. Before, the meta providers of both ports threw `RESOURCE_NOT_FOUND` and the Java cache a third code, `NOT_FOUND_SCHEMA`; through the default provider chains this made a validator throw instead of reporting `SCHEMA_NOT_FOUND`. Covered by `providers.test.ts` (TypeScript) and `SchemaProviderContractTest` (Java). |
 | Caches, filesystem/environment adapters and public facades | Intentionally left to each port. |
 
 ## Audit record — 2026-08-09
@@ -121,3 +122,4 @@ the shared `stxt-web` corpus.
 | Schema child name | A schema with `Child: Invalid!`. | The schema is rejected for the same reason. |
 | Template Structure grammar | A `Structure >>` containing `Field >>`. | The template is rejected: every non-empty Structure line requires `:`. |
 | Discovery conflict | The nearest level has two valid definitions for `com.example.docs`; a farther level has one valid definition for that namespace. | Discovery reports the nearest conflict and exposes no active definition for `com.example.docs`; it must not return the farther definition. |
+| SchemaProvider contract | A `SchemaValidator` over the port's default provider chain (in-memory provider with the meta-schema provider as parent, or a resource-backed chain with a cache) validates a node whose namespace no provider knows. | `getSchema()` returns NULL at every level — meta providers, resource-backed providers, caches and chains included — and `validate()` returns exactly one finding, `SCHEMA_NOT_FOUND`, without throwing. No `RESOURCE_NOT_FOUND` or other not-found code surfaces from a provider. |
