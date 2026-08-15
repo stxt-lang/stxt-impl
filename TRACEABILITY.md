@@ -14,8 +14,11 @@ into platform-neutral algorithms and data contracts. A port must be corrected wh
 disagrees with either one; this document does not create independent language rules.
 
 The canonical specifications are `../stxt-web/es/stxt-*-ref.stxt`. At the time of this
-map, STXT-SPEC has `Last modif: 2026-08-10`, STXT-TREE-SPEC has `Last modif: 2026-08-09`;
-schema, template and discovery specifications have `Last modif: 2026-08-02`.
+map (2026-08-15), STXT-SPEC has `Last modif: 2026-08-10`, STXT-TREE-SPEC has
+`Last modif: 2026-08-09`; schema, template and discovery specifications have
+`Last modif: 2026-08-02`. The ports this map refers to are `@stxt-lang/core` 0.6.3
+(`../stxt-js`) and `dev.stxt:stxt-core` 0.6.1 (`../stxt-java`); both implement the five
+specifications.
 
 ## Scope
 
@@ -27,7 +30,7 @@ the pseudocode's normative scope.
 | Pseudocode area | Normative source | TypeScript reference | Java port |
 |---|---|---|---|
 | `core/constants.txt`, `platform.txt` | STXT-SPEC §§3, 5, 6, 8, 9 | `src/core/Constants.ts` | `dev.stxt.Constants` |
-| `core/string_utils.txt`, `validations.txt` | STXT-SPEC §§4, 7, 10 | `src/core/StringUtils.ts`, `NamespaceValidator.ts` | `dev.stxt.utils.StringUtils`, `NamespaceValidator` |
+| `core/string_utils.txt`, `validations.txt` | STXT-SPEC §§4, 7, 10 | `src/core/StringUtils.ts`, `NamespaceValidator.ts` | `dev.stxt.utils.StringUtils`, `dev.stxt.NamespaceValidator` |
 | `core/line_indent.txt` | STXT-SPEC §§8–10 | `src/core/Line.ts`, `LineParser.ts` | `dev.stxt.LineIndent`, `LineIndentParser` |
 | `core/name_namespace.txt` | STXT-SPEC §§4.1, 7 | `src/core/NameNamespace.ts`, `NameNamespaceParser.ts` | `dev.stxt.NameNamespace`, `NameNamespaceParser` |
 | `core/node.txt` | STXT-SPEC §§4–7, 8.4 | `src/core/Node.ts`, `NodeCreator.ts` | `dev.stxt.Node` |
@@ -41,8 +44,8 @@ the pseudocode's normative scope.
 | `schema/schema_validator.txt`, `types.txt` | STXT-SCHEMA-SPEC §§6, 9–14 | `src/schema/SchemaValidator.ts`, `Type*.ts`, `type/*` | `dev.stxt.schema.SchemaValidator`, `Type*.java`, `type/*` |
 | `template/child_line.txt`, `child_line_parser.txt` | STXT-TEMPLATE-SPEC §§6.2, 7, 9 | `src/template/ChildLine.ts`, `ChildLineParser.ts` | `dev.stxt.template.ChildLine`, `ChildLineParser` |
 | `template/template_parser.txt`, `template_schema_provider.txt` | STXT-TEMPLATE-SPEC §§4–18 | `src/template/TemplateParser.ts`, `*TemplateSchemaProvider.ts` | `dev.stxt.template.TemplateParser`, `*TemplateSchemaProvider` |
-| `discovery/discovery_environment.txt`, `discovery_file_system.txt` | STXT-DISCOVERY-SPEC §§4, 6 | `src/discovery/DiscoveryEnvironment.ts`, `DiscoveryFileSystem.ts` | Not implemented |
-| `discovery/discovery_error.txt`, `discovery_result.txt`, `discovery_resolver.txt` | STXT-DISCOVERY-SPEC §§3–10 | `src/discovery/DiscoveryError.ts`, `DiscoveryResult.ts`, `DiscoveryResolver.ts` | Not implemented |
+| `discovery/discovery_environment.txt`, `discovery_file_system.txt` | STXT-DISCOVERY-SPEC §§4, 6 | `src/discovery/DiscoveryEnvironment.ts`, `DiscoveryFileSystem.ts` | `dev.stxt.discovery.DiscoveryEnvironment` (+ `SystemDiscoveryEnvironment`); no file-system abstraction — the port reads through `java.nio.file` directly (see below) |
+| `discovery/discovery_error.txt`, `discovery_result.txt`, `discovery_resolver.txt` | STXT-DISCOVERY-SPEC §§3–10 | `src/discovery/DiscoveryError.ts`, `DiscoveryResult.ts`, `DiscoveryResolver.ts` | `dev.stxt.discovery.DiscoveryError`, `DiscoveryResult` (+ `DiscoveryDefinition`, `DiscoveryLevel`), `DiscoveryResolver` |
 
 `src/runtime/ConditionalValidator.ts` and `UnifiedSchemaProvider.ts` in TypeScript,
 and the Java `runtime.STXT` / resource-loader facades, are consumer conveniences.
@@ -89,8 +92,8 @@ collect resolution errors without throwing away unrelated definitions.
 
 | Item | Status |
 |---|---|
-| TypeScript discovery | Reference implementation since 0.6.0. |
-| Java discovery | Not implemented yet; Java is therefore not yet conformant with STXT-DISCOVERY-SPEC. |
+| TypeScript discovery | Reference implementation since `@stxt-lang/core` 0.6.0. Host access (files, environment) is injected through `DiscoveryFileSystem` / `DiscoveryEnvironment`, because the same package runs in Node, VS Code and the browser. |
+| Java discovery | Implemented since `stxt-core` 0.6.0 (`dev.stxt.discovery`); Java is conformant with STXT-DISCOVERY-SPEC. It injects only `DiscoveryEnvironment` and reads files directly through `java.nio.file` — a port-level choice, since Java has a universal file-system API; the algorithm (chain, per-namespace precedence, same-level conflicts, accumulated errors) is the one in `discovery_resolver.txt`. |
 | Java name canonicalization | Aligned: NFC normalization preserves diacritics and treats decomposed and precomposed forms as equivalent. |
 | Java exception hierarchy | Port-specific hierarchy; its stable error codes must still agree with this blueprint. |
 | `SchemaProvider` not-found contract | Aligned on 2026-08-15 in both ports: providers return NULL, never throw. Before, the meta providers of both ports threw `RESOURCE_NOT_FOUND` and the Java cache a third code, `NOT_FOUND_SCHEMA`; through the default provider chains this made a validator throw instead of reporting `SCHEMA_NOT_FOUND`. Covered by `providers.test.ts` (TypeScript) and `SchemaProviderContractTest` (Java). |
@@ -105,9 +108,16 @@ The spec-to-pseudocode review corrected four mismatches:
 3. Template `Structure` lines now reject the core BLOCK (`>>`) form and require `:`.
 4. A same-level discovery conflict now blocks fallback to a more distant definition.
 
-The TypeScript port covers all five cases in `core.test.ts`, `providers.test.ts` and
-`discovery.test.ts`. The Java port covers the first four in `NodeNameValidationTest`,
-`SchemaParserTest` and `TemplateParserTest`; discovery remains outside its implemented scope.
+The four corrections translate into the first five rows of the regression table below
+(correction 2 yields two cases: `Node` and `Child`). The TypeScript port covers all five in
+`core.test.ts`, `providers.test.ts` and `discovery.test.ts`. The Java port covers all five in
+`NodeNameValidationTest`, `SchemaParserTest`, `TemplateParserTest` and
+`DiscoveryResolverTest` (since `stxt-core` 0.6.0).
+
+## Alignment record — 2026-08-15
+
+The `SchemaProvider` not-found contract was aligned in both ports (see the status table
+above): providers return NULL, never throw. It adds the last row of the regression table.
 
 ## Required regression cases
 
