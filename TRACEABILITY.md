@@ -18,7 +18,12 @@ map (2026-08-16), STXT-SPEC has `Last modif: 2026-08-10`, STXT-TREE-SPEC has
 `Last modif: 2026-08-09`; schema, template and discovery specifications have
 `Last modif: 2026-08-02`. The ports this map refers to are `@stxt-lang/core` 0.7.0
 (`../stxt-js`) and `dev.stxt:stxt-core` 0.7.0 (`../stxt-java`); both implement the five
-specifications and share the 0.7.0 node model described in `core/node.txt`.
+specifications and share the 0.7.0 node model described in `core/node.txt`. Since 2026-08-16
+there is a third port, `stxt` 0.7.0 for Python (`../stxt-python`), written directly from this
+pseudocode: it mirrors it module by module (`core/node.txt` -> `stxt/core/node.py`,
+`schema/types.txt` -> `stxt/schema/types.py`, `discovery/discovery_resolver.txt` ->
+`stxt/discovery/discovery_resolver.py`, and so on, in `snake_case`), which is why the table
+below does not need a column for it.
 
 ## Scope
 
@@ -105,6 +110,7 @@ collect resolution errors without throwing away unrelated definitions.
 | Node model (0.7.0) | Aligned on 2026-08-16 in both ports, Java first (the design came from production use of the Java API) and TypeScript as a replica. Port-level differences that are *not* semantic: TypeScript names the lookups `getChild(name, ns?)` / `getChildrenByName(name, ns?)` and inserts with `addChild(node, index?)` (no overloading); Java uses overloads (`getChildren(name[, ns])`, `addChild(index, node)`) and a `sealed` class; both keep `getNormalizedName()` as a deprecated alias of `getCanonicalName()` for one minor version. Covered by `node.test.ts` and `NodeTest`. |
 | `SchemaProvider` not-found contract | Aligned on 2026-08-15 in both ports: providers return NULL, never throw. Before, the meta providers of both ports threw `RESOURCE_NOT_FOUND` and the Java cache a third code, `NOT_FOUND_SCHEMA`; through the default provider chains this made a validator throw instead of reporting `SCHEMA_NOT_FOUND`. Covered by `providers.test.ts` (TypeScript) and `SchemaProviderContractTest` (Java). |
 | Caches, filesystem/environment adapters and public facades | Intentionally left to each port. |
+| Python port | `../stxt-python` (`stxt` on PyPI), 2026-08-16: the five specifications and the 0.7.0 node model, module by module from this pseudocode. Port-level choices: `snake_case` names, positional overloads through `*args` plus keywords, read-only tuples for children and text lines, a closed hierarchy enforced in `Node.__init_subclass__`, all value types in one module, synchronous discovery with `OsDiscoveryFileSystem` / `SystemDiscoveryEnvironment` host adapters. Its `pytest` suite runs the shared `stxt-web` corpus (mandatory, fails at collection when absent) and covers every row of the regression table below. |
 
 ## Audit record — 2026-08-09
 
@@ -119,7 +125,8 @@ The four corrections translate into the first five rows of the regression table 
 (correction 2 yields two cases: `Node` and `Child`). The TypeScript port covers all five in
 `core.test.ts`, `providers.test.ts` and `discovery.test.ts`. The Java port covers all five in
 `NodeNameValidationTest`, `SchemaParserTest`, `TemplateParserTest` and
-`DiscoveryResolverTest` (since `stxt-core` 0.6.0).
+`DiscoveryResolverTest` (since `stxt-core` 0.6.0). The Python port covers them in
+`test_core.py`, `test_providers.py` and `test_discovery.py`.
 
 ## Alignment record — 2026-08-15
 
@@ -142,7 +149,8 @@ use of the Java API. It adds the last three rows of the regression table.
 
 These are behaviour-level cases, not a new fixture format. Every conforming port
 should cover them through its normal test framework and, where appropriate, through
-the shared `stxt-web` corpus.
+the shared `stxt-web` corpus. (Python: `test_core.py`, `test_providers.py`,
+`test_template.py`, `test_discovery.py` and `test_node.py`.)
 
 | Area | Input / setup | Expected result |
 |---|---|---|
