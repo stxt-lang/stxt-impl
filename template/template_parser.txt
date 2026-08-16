@@ -14,10 +14,14 @@
 FUNCTION transformNodeToSchema(node: Node): Schema
 
     # The inline value of "Template" is the target namespace
-    result: Schema = Schema(node.getValue(), node.getLine(), NULL)
+    result: Schema = Schema(node.getText(), node.getLine(), NULL)
 
-    # Locate the mandatory "Structure >>" block
-    structure: Node = node.getChild("structure")
+    # Locate the mandatory "Structure >>" block (a template is an inline root; a text root
+    # has no children, hence no Structure)
+    structure: Node = NULL
+    IF node IS InlineNode
+        structure = node.getChild("structure")
+    END IF
     IF structure IS NULL
         THROW ValidationException(node.getLine(), "TEMPLATE_STRUCTURE_REQUIRED", "Template must define 'Structure >>'")
     END IF
@@ -41,7 +45,8 @@ FUNCTION transformNodeToSchema(node: Node): Schema
     END TRY
 
     # Optional "Description >>" block: descriptions for the defined nodes (§12)
-    description: Node = node.getChild("description")
+    root: InlineNode = node
+    description: Node = root.getChild("description")
     IF description IS NOT NULL
         TRY
             nodes: Node[] = Parser().parse(description.getText())
@@ -60,10 +65,11 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
     # A Structure line belongs to the template grammar, not merely to the core
     # grammar. In particular it MUST use ':'; a core BLOCK node ('>>') is invalid
     # here even when its text happens to be empty (STXT-TEMPLATE-SPEC §6.3).
-    IF node.isTextNode()
+    IF NOT node IS InlineNode
         THROW ValidationException(node.getLine(), "INVALID_CHILD_LINE",
             "Template Structure lines must use ':'")
     END IF
+    # From here on node IS InlineNode: value and children are available
 
     namespace: STRING = node.getNamespace()
     name: STRING      = node.getName()
@@ -155,14 +161,14 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
         reference: STRING = type.substring(1).trim()
 
         # Reference and explicit type on the same line (§14.13)
-        explicit_type: STRING = referenceType(reference, node.getNormalizedName())
+        explicit_type: STRING = referenceType(reference, node.getCanonicalName())
         IF explicit_type IS NOT NULL
             THROW ValidationException(node.getLine(), "REFERENCE_WITH_TYPE_NOT_ALLOWED",
                 "Reference '@" + node.getName() + "' can not declare a type: " + explicit_type)
         END IF
 
         # The name of the reference MUST match (canonically) the one of the line (§14.12)
-        IF normalizeChars(reference) != node.getNormalizedName()
+        IF normalizeChars(reference) != node.getCanonicalName()
             THROW ValidationException(node.getLine(), "NODE_REFERENCE_NOT_VALID",
                 "Reference must be '@" + node.getName() + "', not '" + reference + "'")
         END IF
@@ -193,6 +199,11 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
 
     FOREACH child IN children
 
+        # §6.3 again: every Structure line uses ':', so a child is inline too
+        IF NOT child IS InlineNode
+            THROW ValidationException(child.getLine(), "INVALID_CHILD_LINE",
+                "Template Structure lines must use ':'")
+        END IF
         cl = ChildLineParser.parse(child.getValue(), child.getLine())
 
         child_name: STRING      = child.getName()
@@ -252,7 +263,7 @@ PROCEDURE addDescriptions(schema: Schema, nodes: Node[])
         END IF
 
         # No children either
-        IF node.getChildren().size() > 0
+        IF node IS InlineNode AND node.getChildren().size() > 0
             THROW ValidationException(node.getLine(), "CHILDREN_DESCRIPTION_NOT_ALLOWED",
                 "Not allowed children in description")
         END IF

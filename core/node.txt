@@ -1,139 +1,262 @@
-# Node of the STXT tree. It represents both INLINE nodes (with getValue()) and BLOCK
-# text nodes (with getTextLines()), as told apart by isTextNode().
+# The node model of the STXT tree.
 #
-# Mutable while parsing (addChild() / addTextLine() are public); once the document is
-# closed it MUST be treated as read-only.
+# Node is ABSTRACT, with exactly two concrete forms (a closed hierarchy; each port enforces
+# it with its own means — a sealed class in Java, classes in TypeScript):
+#
+#   * InlineNode  — "Name: value": an optional inline value and an ordered list of children.
+#                   The only form with children, and so the only one with child lookups and
+#                   the only one that creates children (addInlineNode / addTextNode).
+#   * TextNode    — "Name >>": an ordered list of literal text lines. No value, no children.
+#
+# Each form owns only what is really its own; Node keeps what is common: name and canonical
+# name, declared and effective namespace, source line, parent, isTextNode() and getText().
+# Code that walks a tree asks for the form (IF node IS InlineNode), the same way the
+# canonical tree of STXT-TREE-SPEC has "children" only for inline nodes.
+#
+# Trees are MUTABLE and keep their own integrity:
+#   * every node knows its parent (always an InlineNode; NULL for a root);
+#   * InlineNode.addChild() links both ends and refuses a node that already has a parent
+#     (NODE_ALREADY_ATTACHED) or that is this node or one of its ancestors (NODE_CYCLE);
+#     removeChild() and detach() undo it;
+#   * the level is DERIVED from the chain of parents, never stored;
+#   * the source line is optional (NO_LINE): the parser sets it, code building trees does not.
+#
+# Namespaces: a node stores the namespace it DECLARES (possibly none). Its EFFECTIVE
+# namespace (getNamespace()) is the declared one or, failing that, the effective namespace of
+# its parent — STXT-SPEC §7: namespaces are inherited vertically, never laterally between
+# roots. Consequences: changing the declared namespace of a node changes the effective
+# namespace of the whole subtree that inherited it; moving a subtree makes it inherit from
+# its new parent; a detached subtree keeps only what it declares. The parser therefore hands
+# the node the namespace the LINE declares, not a resolved one.
+#
+# Every mutator revalidates: setName() the node name (INVALID_NODE_NAME), setNamespace() the
+# namespace format. The error codes are the same as at construction.
 
-CLASS Node
+CONSTANT NO_LINE: INTEGER = -1      # getLine() when the node has no known source position
 
-    # Basic fields
-    FIELD line: INTEGER
-    FIELD level: INTEGER
-    FIELD name: STRING
-    FIELD namespace: STRING
-    FIELD block_text: BOOLEAN
+ABSTRACT CLASS Node
 
-    # Derived fields
-    FIELD normalized_name: STRING
-    FIELD qualified_name: STRING
+    FIELD name: STRING                  # as written, with spaces compacted
+    FIELD canonical_name: STRING        # STXT-SPEC §4.3, derived from name
+    FIELD declared_namespace: STRING    # "" when the node declares none (inherits)
+    FIELD line: INTEGER                 # source line, or NO_LINE
+    FIELD parent: InlineNode = NULL     # set only by InlineNode.addChild / removeChild
 
-    # Children and values
-    FIELD value: STRING
-    FIELD text_lines: STRING[] = []
-    FIELD children: Node[] = []
-
-    CONSTRUCTOR (line, level, name, namespace, block_text, value)
-        line 		= line
-        level 		= level
-        name 		= compactSpaces(name)
-        namespace 	= lowerCase(namespace)
-        block_text	= block_text
-        value 		= trimToNotNull(value)
-
-        normalized_name	= normalizeChars(name)
-
-        IF isEmpty(namespace)
-            qualified_name = normalized_name
-        ELSE
-            qualified_name = namespace + ":" + normalized_name
-        END IF
-
-        # Basic checks
-
-        # Namespace format ('a.b' minimum, ASCII, optional leading '@'). Throws if not valid.
-        validateNamespaceFormat(namespace, line)
-
-        # Safety net: a BLOCK node cannot carry an inline value (also checked by createNode)
-        IF NOT isEmpty(value) AND block_text
-            THROW RuntimeException("INLINE_VALUE_NOT_VALID", "Not empty value with block text")
-        END IF
-
-        # STXT-SPEC §4.2 / §4.3. The shared check validates after NFC, so equivalent
-        # precomposed and decomposed Unicode spellings are both accepted.
-        IF NOT isValidNodeName(name)
-            THROW ParseException(line, "INVALID_NODE_NAME", "Node name not valid: " + name)
-        END IF
+    # Common initialisation of the two forms.
+    CONSTRUCTOR (name, namespace, line)
+        line = line
+        setName(name)
+        setNamespace(namespace)
     END CONSTRUCTOR
 
     # ----------------------------------------
-    # Accessors
+    # Name
     # ----------------------------------------
 
-    # Original name as it appears in the document (with spaces compacted)
     FUNCTION getName(): STRING
         RETURN name
     END FUNCTION
 
-    # Canonical name (STXT-SPEC §4.3), used to compare and look up by structural identity
-    FUNCTION getNormalizedName(): STRING
-        RETURN normalized_name
+    # Renames the node; the canonical name is recomputed. STXT-SPEC §4.2 / §4.3: the shared
+    # check validates after NFC, so equivalent precomposed and decomposed spellings are accepted.
+    PROCEDURE setName(new_name: STRING)
+        compacted: STRING = compactSpaces(new_name)
+        IF NOT isValidNodeName(compacted)
+            THROW ParseException(line, "INVALID_NODE_NAME", "Node name not valid: " + new_name)
+        END IF
+        name = compacted
+        canonical_name = normalizeChars(new_name)
+    END PROCEDURE
+
+    # Canonical name (STXT-SPEC §4.3), used to compare and look up by structural identity.
+    # (Ports that used to call it "normalized name" may keep that getter as a deprecated alias.)
+    FUNCTION getCanonicalName(): STRING
+        RETURN canonical_name
     END FUNCTION
 
-    # Effective namespace (own or inherited from the parent), lower-cased; "" if none
-    FUNCTION getNamespace(): STRING
-        RETURN namespace
-    END FUNCTION
-
-    # Logical identity of the node: namespace:canonical_name (or just the name if there is no namespace)
+    # Logical identity: effective_namespace:canonical_name (just the canonical name if there is
+    # no namespace). Computed on demand: it follows namespace changes and moves.
     FUNCTION getQualifiedName(): STRING
-        RETURN qualified_name
+        namespace: STRING = getNamespace()
+        IF isEmpty(namespace)
+            RETURN canonical_name
+        END IF
+        RETURN namespace + ":" + canonical_name
     END FUNCTION
 
-    # Inline value of an INLINE node, or "" for a BLOCK node
-    FUNCTION getValue(): STRING
-        RETURN value
+    # ----------------------------------------
+    # Namespace
+    # ----------------------------------------
+
+    # The namespace this node declares itself, lower-cased; "" if it declares none.
+    FUNCTION getDeclaredNamespace(): STRING
+        RETURN declared_namespace
     END FUNCTION
 
-    # Text lines of a BLOCK node, in order of appearance
-    FUNCTION getTextLines(): STRING[]
-        RETURN text_lines
-    END FUNCTION
-
-    # Appends a text line to a BLOCK node
-    PROCEDURE addTextLine(text_line: STRING)
-        text_lines.push(text_line)
+    # Sets the declared namespace. NULL or "" means none: the node then inherits its parent's.
+    # Namespace format ('a.b' minimum, ASCII, optional leading '@'). Throws if not valid.
+    PROCEDURE setNamespace(namespace: STRING)
+        lower: STRING = lowerCase(namespace)      # NULL -> ""
+        validateNamespaceFormat(lower, line)
+        declared_namespace = lower
     END PROCEDURE
 
-    # Children of the node in order of appearance
-    FUNCTION getChildren(): Node[]
-        RETURN children
+    # Effective namespace: the declared one or, failing that, the parent's effective one; "".
+    FUNCTION getNamespace(): STRING
+        IF NOT isEmpty(declared_namespace)
+            RETURN declared_namespace
+        END IF
+        IF parent IS NOT NULL
+            RETURN parent.getNamespace()
+        END IF
+        RETURN ""
     END FUNCTION
 
-    # Appends an already closed child at the end of the list of children
-    PROCEDURE addChild(node: Node)
-        children.push(node)
-    END PROCEDURE
+    # ----------------------------------------
+    # Position in the source
+    # ----------------------------------------
 
     FUNCTION getLine(): INTEGER
         RETURN line
     END FUNCTION
 
+    PROCEDURE setLine(new_line: INTEGER)
+        line = new_line
+    END PROCEDURE
+
+    # Depth in the tree: 0 for a root, 1 for its children... Derived, never stored.
     FUNCTION getLevel(): INTEGER
+        level: INTEGER = 0
+        p: Node = parent
+        WHILE p IS NOT NULL
+            level = level + 1
+            p = p.parent
+        END WHILE
         RETURN level
     END FUNCTION
 
-    # true if the node is a text block (BLOCK, '>>'); false if it is INLINE
-    FUNCTION isTextNode(): BOOLEAN
-        RETURN block_text
+    # ----------------------------------------
+    # Tree
+    # ----------------------------------------
+
+    # The parent, or NULL for a root node.
+    FUNCTION getParent(): InlineNode
+        RETURN parent
     END FUNCTION
 
-    # Effective text: the block lines joined with '\n', or the inline value if not a block
-    FUNCTION getText(): STRING
-        IF isTextNode()
-            RETURN join(text_lines, "\n")
-        ELSE
-            RETURN value
+    # Removes this node from its parent, if any. Afterwards it is a root and its effective
+    # namespace is the one it declares. Returns false if it already was a root.
+    FUNCTION detach(): BOOLEAN
+        IF parent IS NULL
+            RETURN false
         END IF
+        RETURN parent.removeChild(this_node)
     END FUNCTION
 
     # ----------------------------------------
-    # Children lookup (by canonical name + namespace)
+    # Content
     # ----------------------------------------
 
-    # Looks up the ONLY direct child with that canonical name in this node's own namespace.
-    # Returns NULL if there is none; throws AMBIGUOUS_CHILD if there is more than one.
+    # true for a TextNode ('>>'), false for an InlineNode.
+    ABSTRACT FUNCTION isTextNode(): BOOLEAN
+
+    # Textual content: the inline value, or the text lines joined with '\n'.
+    ABSTRACT FUNCTION getText(): STRING
+
+END CLASS
+
+
+# ============================================================================
+# InlineNode — "Name: value"
+# ============================================================================
+CLASS InlineNode EXTENDS Node
+
+    FIELD value: STRING = ""
+    FIELD children: Node[] = []
+
+    # Constructors. With two strings the second one is always the CONTENT (the value); the
+    # namespace only exists in the three-argument form. Every port offers these shapes with
+    # its own overloading mechanism.
+    CONSTRUCTOR (name)                              # no value, no namespace, NO_LINE
+    CONSTRUCTOR (name, value)
+    CONSTRUCTOR (name, namespace, value)
+    CONSTRUCTOR (name, namespace, value, line)      # the form the parser uses
+        super(name, namespace, line)
+        setValue(value)
+    END CONSTRUCTOR
+
+    # ---- value
+
+    # The inline value, trimmed; "" if none.
+    FUNCTION getValue(): STRING
+        RETURN value
+    END FUNCTION
+
+    PROCEDURE setValue(new_value: STRING)
+        value = trimToNotNull(new_value)           # NULL -> ""
+    END PROCEDURE
+
+    FUNCTION getText(): STRING
+        RETURN value
+    END FUNCTION
+
+    FUNCTION isTextNode(): BOOLEAN
+        RETURN false
+    END FUNCTION
+
+    # ---- children
+
+    # Children in order of appearance. A read-only view: the list is only changed through
+    # addChild / removeChild, which keep both ends of the link in sync.
+    FUNCTION getChildren(): Node[]
+        RETURN readOnly(children)
+    END FUNCTION
+
+    # Appends a child (or inserts it at index, 0 = first), linking both ends. The child must
+    # not have a parent yet, and must not be this node or one of its ancestors.
+    PROCEDURE addChild(child: Node)
+        addChild(children.size(), child)
+    END PROCEDURE
+
+    PROCEDURE addChild(index: INTEGER, child: Node)
+        IF child.getParent() IS NOT NULL
+            THROW RuntimeException("NODE_ALREADY_ATTACHED", "Node '" + child.getName() + "' already has a parent: detach it first")
+        END IF
+
+        # Walk up from this node (itself included) looking for the child among the ancestors
+        p: Node = this_node
+        WHILE p IS NOT NULL
+            IF p == child                          # identity
+                THROW RuntimeException("NODE_CYCLE", "Node '" + child.getName() + "' cannot be a child of itself or of one of its descendants")
+            END IF
+            p = p.getParent()
+        END WHILE
+
+        children.insert(index, child)              # out of range is a platform error
+        child.parent = this_node
+    END PROCEDURE
+
+    # Removes a direct child, unlinking both ends. Identity, not equality: two children may
+    # look alike. Returns false if it was not a direct child of this node.
+    FUNCTION removeChild(child: Node): BOOLEAN
+        IF child.getParent() != this_node
+            RETURN false
+        END IF
+        i: INTEGER = children.indexOfIdentity(child)
+        IF i == -1
+            RETURN false
+        END IF
+        children.removeAt(i)
+        child.parent = NULL
+        RETURN true
+    END FUNCTION
+
+    # ---- lookups (by canonical name + effective namespace)
+
+    # The ONLY direct child with that canonical name in the given effective namespace (this
+    # node's own effective namespace when omitted). NULL if none; AMBIGUOUS_CHILD if several.
     FUNCTION getChild(cname: STRING): Node
-        RETURN getChild(cname, namespace)
+        RETURN getChild(cname, getNamespace())
     END FUNCTION
 
     FUNCTION getChild(cname: STRING, child_namespace: STRING): Node
@@ -147,21 +270,101 @@ CLASS Node
         RETURN result[0]
     END FUNCTION
 
-    # Every direct child with that canonical name in this node's own namespace,
-    # preserving the order of appearance.
+    # Every direct child with that canonical name in the given effective namespace (this
+    # node's own when omitted), preserving the order of appearance.
+    # (A port without overloading names this getChildrenByName(cname, namespace?).)
     FUNCTION getChildren(cname: STRING): Node[]
-        RETURN getChildren(cname, namespace)
+        RETURN getChildren(cname, getNamespace())
     END FUNCTION
 
     FUNCTION getChildren(cname: STRING, child_namespace: STRING): Node[]
         key: STRING = normalizeChars(cname)
         result: Node[] = []
         FOREACH child IN children
-            IF child.getNormalizedName() == key AND child.getNamespace() == child_namespace
+            IF child.getCanonicalName() == key AND child.getNamespace() == child_namespace
                 result.push(child)
             END IF
         END FOREACH
         RETURN result
+    END FUNCTION
+
+    # ---- factories: create a child, append it, return it
+
+    # Same argument rule as the constructors: with two strings the second one is the content;
+    # a NULL/"" namespace means "inherit this node's".
+    FUNCTION addInlineNode(name): InlineNode
+    FUNCTION addInlineNode(name, value): InlineNode
+    FUNCTION addInlineNode(name, namespace, value): InlineNode
+        child: InlineNode = InlineNode(name, namespace, value)
+        addChild(child)
+        RETURN child
+    END FUNCTION
+
+    # text may be a STRING (split into lines at every LF or CRLF) or the lines themselves.
+    FUNCTION addTextNode(name): TextNode
+    FUNCTION addTextNode(name, text): TextNode
+    FUNCTION addTextNode(name, namespace, text): TextNode
+        child: TextNode = TextNode(name, namespace, text)
+        addChild(child)
+        RETURN child
+    END FUNCTION
+
+END CLASS
+
+
+# ============================================================================
+# TextNode — "Name >>"
+# ============================================================================
+CLASS TextNode EXTENDS Node
+
+    FIELD lines: STRING[] = []
+
+    # Constructors, same argument rule as InlineNode: with two arguments the second one is the
+    # CONTENT (the text as a STRING, split at every LF or CRLF — the part after the last break
+    # is a line too, possibly empty — or the lines themselves).
+    CONSTRUCTOR (name)
+    CONSTRUCTOR (name, text)
+    CONSTRUCTOR (name, namespace, text)
+    CONSTRUCTOR (name, namespace, text, line)       # the form the parser uses, with text = NULL
+        super(name, namespace, line)
+        setText(text)
+    END CONSTRUCTOR
+
+    # Text lines in order, as a read-only view.
+    FUNCTION getTextLines(): STRING[]
+        RETURN readOnly(lines)
+    END FUNCTION
+
+    # Replaces the whole text: a STRING is split into lines (LF or CRLF); NULL empties the node.
+    PROCEDURE setText(text)
+        lines = []
+        IF text IS NOT NULL
+            IF text IS STRING
+                lines = splitLines(text)           # "a\r\nb\n" -> ["a", "b", ""]
+            ELSE
+                lines = copy(text)
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE setTextLines(new_lines: STRING[])
+        setText(new_lines)
+    END PROCEDURE
+
+    PROCEDURE addTextLine(text_line: STRING)
+        lines.push(text_line)
+    END PROCEDURE
+
+    PROCEDURE clearText()
+        lines = []
+    END PROCEDURE
+
+    FUNCTION getText(): STRING
+        RETURN join(lines, "\n")
+    END FUNCTION
+
+    FUNCTION isTextNode(): BOOLEAN
+        RETURN true
     END FUNCTION
 
 END CLASS

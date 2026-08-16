@@ -4,9 +4,13 @@
 #
 # Algorithm: a stack of open nodes, one per indentation level (the size of the stack is
 # the level of the next line). When a line at level N arrives, every node deeper than N
-# is closed (validated, attached to its parent and notified to the observers), and the
-# new node is pushed onto the stack, still open. A document may hold multiple root
-# nodes, which close under concatenation (STXT-SPEC §8.5 — logs/streaming friendly).
+# is closed (validated and notified to the observers), and the new node is created,
+# ATTACHED to its parent (the top of the stack; or added to the documents if it is a root)
+# and pushed onto the stack, still open. Attaching at creation links both ends of the
+# parent link (core/node.txt), so the node already knows its parent — and so its effective
+# namespace and its level — when the observers see it in onCreate(). A document may hold
+# multiple root nodes, which close under concatenation (STXT-SPEC §8.5 — logs/streaming
+# friendly).
 #
 # Two modes:
 #   * parse():       traditional fail-fast, throws the first error found.
@@ -65,7 +69,7 @@ CLASS Parser
         END FOREACH
 
         # Close every node still open at EOF
-        closeToLevel(stack, documents, 0, result)
+        closeToLevel(stack, 0, result)
 
         # Add the root nodes to the result
         FOREACH doc IN documents
@@ -84,12 +88,13 @@ CLASS Parser
                 last_node = stack.last()
             END IF
 
+            # One open node per level: the top of the stack is at level size - 1
             last_level: INTEGER = 0
             IF last_node IS NOT NULL
-                last_level = last_node.getLevel()
+                last_level = stack.size() - 1
             END IF
 
-            last_node_block = last_node IS NOT NULL AND last_node.isTextNode()
+            last_node_block = last_node IS NOT NULL AND last_node IS TextNode
 
             # Split the line into indentation and content
             line_indent: LineIndent = parseLine(line_string, last_node_block, last_level, line_number)
@@ -104,10 +109,11 @@ CLASS Parser
 
             # Text line of an open BLOCK node: append it instead of creating a node
             IF line_indent.is_block
-                last_node.addTextLine(line_indent.line_without_indent)
+                text_node: TextNode = last_node
+                text_node.addTextLine(line_indent.line_without_indent)
 
                 FOREACH observer IN observers
-                    observer.onTextLine(last_node, line_number, line_string, line_indent)
+                    observer.onTextLine(text_node, line_number, line_string, line_indent)
                 END FOREACH
                 RETURN
             END IF
@@ -119,18 +125,23 @@ CLASS Parser
 
             current_level = line_indent.indent_level
 
-            # Close nodes down to the current level (finalizes them and attaches them)
-            closeToLevel(stack, documents, current_level, result)
+            # Close nodes down to the current level (finalizes them)
+            closeToLevel(stack, current_level, result)
 
-            # Create the new node and keep it open on the stack (not attached yet)
-            parent: Node = NULL
-            IF NOT stack.isEmpty()
-                parent = stack.last()
+            # Create the new node, attach it to its parent (or to the documents if it is a
+            # root) and keep it open on the stack. The parent is always an InlineNode: a
+            # TextNode on top of the stack only takes text lines (is_block above), and any
+            # line at its level or shallower has just closed it.
+            node: Node = createNode(line_indent, line_number)
+
+            IF stack.isEmpty()
+                documents.push(node)
+            ELSE
+                parent: InlineNode = stack.last()
+                parent.addChild(node)
             END IF
 
-            node: Node = createNode(line_indent, line_number, current_level, parent)
-
-            # Hand it over to the observers
+            # Hand it over to the observers (the node already has its parent)
             FOREACH observer IN observers
                 observer.onCreate(node, line_string)
             END FOREACH
@@ -145,9 +156,9 @@ CLASS Parser
         END TRY
     END PROCEDURE
 
-    # Closes every node deeper than target_level: runs the validators over it, attaches
-    # it to its parent (or to the documents if it is a root) and notifies the observers.
-    PROCEDURE closeToLevel(stack: Node[], documents: Node[], target_level: INTEGER, result: ParseResult)
+    # Closes every node deeper than target_level: runs the validators over it and notifies
+    # the observers. (The node was attached to its parent when it was created.)
+    PROCEDURE closeToLevel(stack: Node[], target_level: INTEGER, result: ParseResult)
 
         WHILE stack.size() > target_level
 
@@ -168,12 +179,6 @@ CLASS Parser
                 END TRY
             END FOREACH
 
-            IF stack.isEmpty()
-                documents.push(completed)
-            ELSE
-                stack.last().addChild(completed)
-            END IF
-
             # Hand it over to the observers
             FOREACH observer IN observers
                 observer.onFinish(completed)
@@ -186,8 +191,10 @@ CLASS Parser
 END CLASS
 
 # Builds the node a line opens, telling apart the INLINE form ("Name: value") from the
-# BLOCK one ("Name >>") and resolving the namespace against the parent.
-FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER, level: INTEGER, parent: Node): Node
+# BLOCK one ("Name >>"). The node gets the namespace the LINE declares, if any; inheritance
+# from the parent is resolved by the node itself through its parent link, once attached
+# (Node.getNamespace()). No level either: it is derived from the parent chain.
+FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER): Node
 
     line: STRING = line_indent.line_without_indent
 
@@ -227,13 +234,8 @@ FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER, level: INTEGE
         THROW ParseException(line_number, "INLINE_VALUE_NOT_VALID", "Line not valid: " + line)
     END IF
 
-    # Default namespace: inherited from the parent
-    parent_namespace: STRING = NULL
-    IF parent IS NOT NULL
-        parent_namespace = parent.getNamespace()
-    END IF
-
-    nn: NameNamespace = NameNamespaceParser.parse(name, parent_namespace, line_number, line)
+    # The namespace the line declares, if any ("" when it inherits)
+    nn: NameNamespace = NameNamespaceParser.parse(name, NULL, line_number, line)
 
     name = nn.getName()
     namespace: STRING = nn.getNamespace()
@@ -243,6 +245,10 @@ FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER, level: INTEGE
         THROW ParseException(line_number, "INVALID_LINE", "Line not valid: " + line)
     END IF
 
-    RETURN Node(line_number, level, name, namespace, is_text_node, value)
+    IF is_text_node
+        RETURN TextNode(name, namespace, NULL, line_number)
+    ELSE
+        RETURN InlineNode(name, namespace, value, line_number)
+    END IF
 
 END FUNCTION

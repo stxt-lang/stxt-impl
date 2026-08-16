@@ -86,8 +86,8 @@ END CLASS
 # ignoring line breaks, empty lines and the leading and trailing spaces or tabs of
 # each line. Whitespace INSIDE a line is kept (and is therefore invalid content).
 FUNCTION binaryValue(node: Node): STRING
-    IF NOT node.isTextNode()
-        RETURN node.getValue()
+    IF NOT node IS TextNode
+        RETURN node.getText()
     END IF
 
     result: STRING = ""
@@ -123,7 +123,7 @@ CLASS GROUP IMPLEMENTS Type
 
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
         # NONE value form (§9.2)
-        IF NOT isEmpty(n.getValue()) OR n.isTextNode()
+        IF n.isTextNode() OR NOT isEmpty(n.getText())
             THROW ValidationException(n.getLine(), "INVALID_VALUE", "Node '" + n.getName() + "' has to be empty")
         END IF
     END PROCEDURE
@@ -150,7 +150,8 @@ CLASS TEXT IMPLEMENTS Type
     END FUNCTION
 
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
-        IF n.getChildren().size() > 0
+        # Only an InlineNode has children
+        IF n IS InlineNode AND n.getChildren().size() > 0
             THROW ValidationException(n.getLine(), "NOT_ALLOWED_CHILDREN_TEXT", "Not allowed children nodes in node " + n.getQualifiedName())
         END IF
     END PROCEDURE
@@ -164,7 +165,8 @@ CLASS MARKDOWN IMPLEMENTS Type
     END FUNCTION
 
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
-        IF n.getChildren().size() > 0
+        # Only an InlineNode has children
+        IF n IS InlineNode AND n.getChildren().size() > 0
             THROW ValidationException(n.getLine(), "NOT_ALLOWED_CHILDREN_TEXT", "Not allowed children nodes in node " + n.getQualifiedName())
         END IF
     END PROCEDURE
@@ -182,9 +184,10 @@ CLASS ENUM IMPLEMENTS Type
             THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
         END IF
 
-        IF NOT ns_node.isAllowedValue(n.getValue())
+        value: STRING = n.getText()
+        IF NOT ns_node.isAllowedValue(value)
             THROW ValidationException(n.getLine(), "INVALID_VALUE",
-                "The value '" + n.getValue() + "' not allowed. Only: " + ns_node.getValues())
+                "The value '" + value + "' not allowed. Only: " + ns_node.getValues())
         END IF
     END PROCEDURE
 END CLASS
@@ -209,7 +212,7 @@ CLASS RegexValue IMPLEMENTS Type
             THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
         END IF
 
-        value: STRING = n.getValue()
+        value: STRING = n.getText()
         IF NOT pattern.matches(value)
             THROW ValidationException(n.getLine(), "INVALID_VALUE", n.getName() + ": " + error + " (" + value + ")")
         END IF
@@ -333,7 +336,7 @@ CLASS URL IMPLEMENTS Type
             THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
         END IF
 
-        url: STRING = n.getValue()
+        url: STRING = n.getText()
         uri = parseURI(url)
         IF uri IS NULL OR uri.getScheme() IS NULL OR uri.getHost() IS NULL
             THROW ValidationException(n.getLine(), "INVALID_VALUE", "Invalid URL: " + url)

@@ -5,10 +5,20 @@
 # optionally, validated against the meta-schema (@stxt.schema). Here the logical
 # representation is built.
 
+# The schema language is written with inline nodes: "Schema:", "Node:", "Child:", "Type:"...
+# Anything else is not a schema. Ports call this before reading value or children of a node
+# of the schema document, so a misuse fails with a typed error, never with a class cast.
+FUNCTION inline(node: Node): InlineNode
+    IF node IS InlineNode
+        RETURN node
+    END IF
+    THROW ValidationException(node.getLine(), "INVALID_SCHEMA", "Node '" + node.getName() + "' must be inline in a schema")
+END FUNCTION
+
 # Turns the root node of a schema document into a Schema.
 FUNCTION transformNodeToSchema(node: Node): Schema
 
-    node_name: STRING        = node.getNormalizedName()
+    node_name: STRING        = node.getCanonicalName()
     namespace_schema: STRING = node.getNamespace()
 
     # The root MUST be "schema" in the @stxt.schema namespace
@@ -16,25 +26,26 @@ FUNCTION transformNodeToSchema(node: Node): Schema
         THROW ValidationException(node.getLine(), "NOT_STXT_SCHEMA",
             "Expected schema(" + Schema.SCHEMA_NAMESPACE + ") but got " + node_name + "(" + namespace_schema + ")")
     END IF
+    root: InlineNode = inline(node)
 
     # Optional description of the schema
     description: STRING = NULL
-    description_node: Node = node.getChild("description")
+    description_node: Node = root.getChild("description")
     IF description_node IS NOT NULL
         description = description_node.getText()
     END IF
 
     # The inline value of the root Schema node is the target namespace
-    schema: Schema = Schema(node.getValue(), node.getLine(), description)
+    schema: Schema = Schema(root.getValue(), root.getLine(), description)
 
     # Canonical names of the declared Nodes (to check §8.1 below)
     all_names: STRING[] = []
 
     # Each "Node" child of the schema defines a NodeDefinition
-    FOREACH n IN node.getChildren("node")
+    FOREACH n IN root.getChildren("node")
         sch_node: NodeDefinition = createNodeDefinition(n, schema.getNamespace())
         schema.addNodeDefinition(sch_node)
-        all_names.push(sch_node.getNormalizedName())
+        all_names.push(sch_node.getCanonicalName())
     END FOREACH
 
     # Every Child of the schema's own namespace MUST refer to a Node declared in this
@@ -42,9 +53,9 @@ FUNCTION transformNodeToSchema(node: Node): Schema
     FOREACH sch_node IN schema.getNodes().values()
         FOREACH sch_child IN sch_node.getChildren().values()
             IF sch_child.getNamespace() == schema.getNamespace()
-                IF NOT all_names.contains(sch_child.getNormalizedName())
+                IF NOT all_names.contains(sch_child.getCanonicalName())
                     THROW ValidationException(0, "CHILD_NOT_DEFINED",
-                        "Child " + sch_child.getNormalizedName() + " not defined in " + schema.getNamespace())
+                        "Child " + sch_child.getCanonicalName() + " not defined in " + schema.getNamespace())
                 END IF
             END IF
         END FOREACH
@@ -54,7 +65,9 @@ FUNCTION transformNodeToSchema(node: Node): Schema
 END FUNCTION
 
 # Builds a NodeDefinition from a "Node:" entry.
-FUNCTION createNodeDefinition(n: Node, namespace: STRING): NodeDefinition
+FUNCTION createNodeDefinition(node: Node, namespace: STRING): NodeDefinition
+
+    n: InlineNode = inline(node)
 
     # The inline value of "Node" is the name of the target node
     name: STRING = n.getValue()
@@ -63,7 +76,7 @@ FUNCTION createNodeDefinition(n: Node, namespace: STRING): NodeDefinition
     type: STRING = "INLINE"
     type_node: Node = n.getChild("type")
     IF type_node IS NOT NULL
-        type = type_node.getValue()
+        type = type_node.getText()
     END IF
 
     # Optional description of the node
@@ -84,7 +97,7 @@ FUNCTION createNodeDefinition(n: Node, namespace: STRING): NodeDefinition
                 "Type " + type + " does not allow children (node " + name + ")")
         END IF
 
-        FOREACH child IN children.getChildren("child")
+        FOREACH child IN inline(children).getChildren("child")
             putChildToNodeDefinition(result, child, namespace)
         END FOREACH
     END IF
@@ -104,9 +117,9 @@ FUNCTION createNodeDefinition(n: Node, namespace: STRING): NodeDefinition
 
         # Collect every "Value:" inside the "Values:" node
         values_node: Node = values[0]
-        values = values_node.getChildren("value")
+        values = inline(values_node).getChildren("value")
         FOREACH value IN values
-            result.addValue(value.getValue(), value.getLine())
+            result.addValue(value.getText(), value.getLine())
         END FOREACH
     END IF
 
@@ -119,7 +132,9 @@ FUNCTION createNodeDefinition(n: Node, namespace: STRING): NodeDefinition
 END FUNCTION
 
 # Builds a ChildDefinition from a "Child:" entry and adds it to the NodeDefinition.
-PROCEDURE putChildToNodeDefinition(node_definition: NodeDefinition, child: Node, def_namespace: STRING)
+PROCEDURE putChildToNodeDefinition(node_definition: NodeDefinition, child_node: Node, def_namespace: STRING)
+
+    child: InlineNode = inline(child_node)
 
     # The inline value of "Child" is the name of the child, with an optional namespace in ()
     nn: NameNamespace = NameNamespaceParser.parse(child.getValue(), def_namespace, child.getLine(), child.getValue())
@@ -140,16 +155,16 @@ PROCEDURE putChildToNodeDefinition(node_definition: NodeDefinition, child: Node,
 END PROCEDURE
 
 # Reads an integer child (Min/Max) of a node. Returns NULL when it is not there.
-FUNCTION getInteger(node: Node, child_name: STRING): INTEGER
+FUNCTION getInteger(node: InlineNode, child_name: STRING): INTEGER
     n: Node = node.getChild(child_name)
     IF n IS NULL
         RETURN NULL
     END IF
 
     # Fail loudly when the value is not a valid integer
-    IF NOT isInteger(n.getValue())
-        THROW ValidationException(node.getLine(), "INVALID_INTEGER", "Integer not valid: " + n.getValue())
+    IF NOT isInteger(n.getText())
+        THROW ValidationException(node.getLine(), "INVALID_INTEGER", "Integer not valid: " + n.getText())
     END IF
 
-    RETURN parseInteger(n.getValue())
+    RETURN parseInteger(n.getText())
 END FUNCTION

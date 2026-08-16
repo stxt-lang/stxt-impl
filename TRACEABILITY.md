@@ -14,11 +14,11 @@ into platform-neutral algorithms and data contracts. A port must be corrected wh
 disagrees with either one; this document does not create independent language rules.
 
 The canonical specifications are `../stxt-web/es/stxt-*-ref.stxt`. At the time of this
-map (2026-08-15), STXT-SPEC has `Last modif: 2026-08-10`, STXT-TREE-SPEC has
+map (2026-08-16), STXT-SPEC has `Last modif: 2026-08-10`, STXT-TREE-SPEC has
 `Last modif: 2026-08-09`; schema, template and discovery specifications have
-`Last modif: 2026-08-02`. The ports this map refers to are `@stxt-lang/core` 0.6.3
-(`../stxt-js`) and `dev.stxt:stxt-core` 0.6.1 (`../stxt-java`); both implement the five
-specifications.
+`Last modif: 2026-08-02`. The ports this map refers to are `@stxt-lang/core` 0.7.0
+(`../stxt-js`) and `dev.stxt:stxt-core` 0.7.0 (`../stxt-java`); both implement the five
+specifications and share the 0.7.0 node model described in `core/node.txt`.
 
 ## Scope
 
@@ -33,7 +33,7 @@ the pseudocode's normative scope.
 | `core/string_utils.txt`, `validations.txt` | STXT-SPEC §§4, 7, 10 | `src/core/StringUtils.ts`, `NamespaceValidator.ts` | `dev.stxt.utils.StringUtils`, `dev.stxt.NamespaceValidator` |
 | `core/line_indent.txt` | STXT-SPEC §§8–10 | `src/core/Line.ts`, `LineParser.ts` | `dev.stxt.LineIndent`, `LineIndentParser` |
 | `core/name_namespace.txt` | STXT-SPEC §§4.1, 7 | `src/core/NameNamespace.ts`, `NameNamespaceParser.ts` | `dev.stxt.NameNamespace`, `NameNamespaceParser` |
-| `core/node.txt` | STXT-SPEC §§4–7, 8.4 | `src/core/Node.ts`, `NodeCreator.ts` | `dev.stxt.Node` |
+| `core/node.txt` (`Node`, `InlineNode`, `TextNode`) | STXT-SPEC §§4–7, 8.4; STXT-TREE-SPEC (two forms) | `src/core/Node.ts`, `InlineNode.ts`, `TextNode.ts`, `NodeCreator.ts` | `dev.stxt.Node`, `InlineNode`, `TextNode` |
 | `core/parse_result.txt`, `parser.txt` | STXT-SPEC §§3–12 | `src/core/ParseResult.ts`, `Parser.ts` | `dev.stxt.ParseResult`, `Parser` |
 | `core/node_writer.txt` | STXT-SPEC §§4–10; round-trip property | `src/runtime/NodeWriter.ts` | `dev.stxt.runtime.NodeWriter` |
 | `core/tree_json.txt` | STXT-TREE-SPEC §§3–9 | `src/runtime/TreeJson.ts` | `dev.stxt.runtime.TreeJson` |
@@ -62,6 +62,12 @@ transparent comments. Names use NFC for identity, preserve accents, and namespac
 are ASCII and inherited only vertically. The authoritative algorithms are in
 `core/parser.txt`, `line_indent.txt`, `name_namespace.txt`, `node.txt` and
 `string_utils.txt`.
+
+The in-memory tree (`core/node.txt`, since the 0.7.0 ports) has exactly two node forms —
+`InlineNode` and `TextNode`, each owning only what is its own — linked to their parent,
+with the level derived from the parent chain and the effective namespace resolved
+through it from the namespace each node *declares*. This is the API contract shared by
+the ports; the language and the canonical tree are unaffected by it.
 
 ### STXT-TREE-SPEC
 
@@ -96,6 +102,7 @@ collect resolution errors without throwing away unrelated definitions.
 | Java discovery | Implemented since `stxt-core` 0.6.0 (`dev.stxt.discovery`); Java is conformant with STXT-DISCOVERY-SPEC. It injects only `DiscoveryEnvironment` and reads files directly through `java.nio.file` — a port-level choice, since Java has a universal file-system API; the algorithm (chain, per-namespace precedence, same-level conflicts, accumulated errors) is the one in `discovery_resolver.txt`. |
 | Java name canonicalization | Aligned: NFC normalization preserves diacritics and treats decomposed and precomposed forms as equivalent. |
 | Java exception hierarchy | Port-specific hierarchy; its stable error codes must still agree with this blueprint. |
+| Node model (0.7.0) | Aligned on 2026-08-16 in both ports, Java first (the design came from production use of the Java API) and TypeScript as a replica. Port-level differences that are *not* semantic: TypeScript names the lookups `getChild(name, ns?)` / `getChildrenByName(name, ns?)` and inserts with `addChild(node, index?)` (no overloading); Java uses overloads (`getChildren(name[, ns])`, `addChild(index, node)`) and a `sealed` class; both keep `getNormalizedName()` as a deprecated alias of `getCanonicalName()` for one minor version. Covered by `node.test.ts` and `NodeTest`. |
 | `SchemaProvider` not-found contract | Aligned on 2026-08-15 in both ports: providers return NULL, never throw. Before, the meta providers of both ports threw `RESOURCE_NOT_FOUND` and the Java cache a third code, `NOT_FOUND_SCHEMA`; through the default provider chains this made a validator throw instead of reporting `SCHEMA_NOT_FOUND`. Covered by `providers.test.ts` (TypeScript) and `SchemaProviderContractTest` (Java). |
 | Caches, filesystem/environment adapters and public facades | Intentionally left to each port. |
 
@@ -117,7 +124,19 @@ The four corrections translate into the first five rows of the regression table 
 ## Alignment record — 2026-08-15
 
 The `SchemaProvider` not-found contract was aligned in both ports (see the status table
-above): providers return NULL, never throw. It adds the last row of the regression table.
+above): providers return NULL, never throw. It adds the "SchemaProvider contract" row of
+the regression table.
+
+## Alignment record — 2026-08-16 (node model, 0.7.0)
+
+`core/node.txt` was rewritten for the new node model, and `core/parser.txt`,
+`node_writer.txt`, `tree_json.txt`, `processors/observer.txt`, `schema/*` and `template/*`
+adapted to it (walks ask for the form; the writer emits the namespace where declared; the
+parser attaches a node to its parent when it opens it and hands it the declared, not the
+resolved, namespace). This alignment went **against** the usual direction of the chain
+on purpose: the design was made and tested in `stxt-java` first, replicated in `stxt-js`,
+and then written here — it is API shape, not language semantics, and it came from real
+use of the Java API. It adds the last three rows of the regression table.
 
 ## Required regression cases
 
@@ -132,4 +151,7 @@ the shared `stxt-web` corpus.
 | Schema child name | A schema with `Child: Invalid!`. | The schema is rejected for the same reason. |
 | Template Structure grammar | A `Structure >>` containing `Field >>`. | The template is rejected: every non-empty Structure line requires `:`. |
 | Discovery conflict | The nearest level has two valid definitions for `com.example.docs`; a farther level has one valid definition for that namespace. | Discovery reports the nearest conflict and exposes no active definition for `com.example.docs`; it must not return the farther definition. |
+| Node model: two forms | A tree with an inline node and a text node. | Only the inline node has a value, children and child lookups; only the text node has text lines; the base type exposes neither (a walk asks for the form). `getText()` is the value or the joined lines. |
+| Node model: parent integrity | `a.addChild(child)`, then `b.addChild(child)`; and `grandchild.addChild(root)`. | The second add fails with `NODE_ALREADY_ATTACHED` and changes nothing; the third fails with `NODE_CYCLE`. `removeChild`/`detach` unlink both ends; `getLevel()` follows the chain of parents (root = 0). |
+| Node model: declared vs effective namespace | A parsed `Doc (com.example.docs)` with a child that declares none and a grandchild declaring `org.other.ns`; then `doc.setNamespace("com.example.v2")`, and moving/detaching the child. | The child's effective namespace follows the parent (`com.example.docs`, then `com.example.v2`; `""` when detached, the new parent's when moved); the grandchild keeps `org.other.ns`. `NodeWriter` writes the namespace only where declared, and the canonical tree of the written text equals the original. |
 | SchemaProvider contract | A `SchemaValidator` over the port's default provider chain (in-memory provider with the meta-schema provider as parent, or a resource-backed chain with a cache) validates a node whose namespace no provider knows. | `getSchema()` returns NULL at every level — meta providers, resource-backed providers, caches and chains included — and `validate()` returns exactly one finding, `SCHEMA_NOT_FOUND`, without throwing. No `RESOURCE_NOT_FOUND` or other not-found code surfaces from a provider. |

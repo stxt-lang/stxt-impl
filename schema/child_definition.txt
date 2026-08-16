@@ -5,14 +5,14 @@
 CLASS ChildDefinition
 
     FIELD name: STRING
-    FIELD normalized_name: STRING
+    FIELD canonical_name: STRING
     FIELD namespace: STRING
     FIELD min: INTEGER          # NULL = no minimum (effectively 0)
     FIELD max: INTEGER          # NULL = no maximum (unbounded)
 
     CONSTRUCTOR (name, namespace, min, max, line)
         name            = compactSpaces(name)
-        normalized_name = normalizeChars(name)
+        canonical_name = normalizeChars(name)
         namespace       = lowerCase(namespace)
         min             = min
         max             = max
@@ -31,8 +31,8 @@ CLASS ChildDefinition
         RETURN name
     END FUNCTION
 
-    FUNCTION getNormalizedName(): STRING
-        RETURN normalized_name
+    FUNCTION getCanonicalName(): STRING
+        RETURN canonical_name
     END FUNCTION
 
     FUNCTION getNamespace(): STRING
@@ -51,9 +51,9 @@ CLASS ChildDefinition
     # there is no namespace. Used as the key in NodeDefinition.getChildren().
     FUNCTION getQualifiedName(): STRING
         IF isEmpty(namespace)
-            RETURN normalized_name
+            RETURN canonical_name
         ELSE
-            RETURN namespace + ":" + normalized_name
+            RETURN namespace + ":" + canonical_name
         END IF
     END FUNCTION
 

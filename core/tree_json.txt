@@ -28,17 +28,18 @@ CLASS TreeJson
     END FUNCTION
 
     FUNCTION toCanonicalNode(node: Node): MAP
-        IF node.isTextNode()
+        IF node IS TextNode
             # Copy the lines exactly, including empty and trailing empty lines.
             RETURN {
                 "name": node.getName(),
-                "canonicalName": node.getNormalizedName(),
-                "namespace": node.getNamespace(),
+                "canonicalName": node.getCanonicalName(),
+                "namespace": node.getNamespace(),          # effective
                 "form": "block",
                 "lines": copy(node.getTextLines())
             }
         END IF
 
+        # node IS InlineNode
         children: MAP[] = []
         FOREACH child IN node.getChildren()
             children.push(toCanonicalNode(child))
@@ -46,8 +47,8 @@ CLASS TreeJson
 
         RETURN {
             "name": node.getName(),
-            "canonicalName": node.getNormalizedName(),
-            "namespace": node.getNamespace(),
+            "canonicalName": node.getCanonicalName(),
+            "namespace": node.getNamespace(),              # effective
             "form": "inline",
             "value": node.getValue(),
             "children": children

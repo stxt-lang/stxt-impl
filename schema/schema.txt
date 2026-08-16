@@ -40,7 +40,7 @@ CLASS Schema
     END FUNCTION
 
     PROCEDURE addNodeDefinition(node_definition: NodeDefinition)
-        qname: STRING = node_definition.getNormalizedName()
+        qname: STRING = node_definition.getCanonicalName()
 
         # Two Node definitions cannot share a canonical name (schema error)
         IF nodes.containsKey(qname)

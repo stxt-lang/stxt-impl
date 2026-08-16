@@ -40,6 +40,7 @@ CONSTANT
 INTERFACE
 IMPLEMENTS
 EXTENDS
+ABSTRACT
 THROW
 TRY
 CATCH
@@ -202,6 +203,28 @@ A class name may coincide with a basic type name (§4.1) when mirroring a domain
 concept (e.g. the schema value types `BOOLEAN` or `INTEGER`): context disambiguates —
 `x: INTEGER` is a type annotation, `CLASS INTEGER` declares a class.
 
+Inside a method, `this_node` (or, generally, `this_<class>`) names the object the method
+runs on, when it has to be passed or compared explicitly; ports render it as `this`/`self`.
+
+`ABSTRACT CLASS` declares a class that is never instantiated on its own; inside it,
+`ABSTRACT FUNCTION` / `ABSTRACT PROCEDURE` declare a member that every concrete subclass
+(`CLASS X EXTENDS Base`) must provide. When the blueprint says the subclasses listed are the
+*only* ones (a closed hierarchy), it says so in a comment; the pseudocode has no keyword for it,
+and each port uses its own means (a sealed class, a discriminated union, a check in the
+constructor).
+
+```text
+ABSTRACT CLASS Node
+    ABSTRACT FUNCTION getText(): STRING
+END CLASS
+
+CLASS InlineNode EXTENDS Node
+    FUNCTION getText(): STRING
+        RETURN value
+    END FUNCTION
+END CLASS
+```
+
 ---
 
 ## 7. Assignment
@@ -311,7 +334,9 @@ IF result IS NOT NULL
 END IF
 ```
 
-* `IS` / `IS NOT` are used exclusively to compare against `NULL`.
+* `IS` / `IS NOT` are used to compare against `NULL`, and to test the concrete class of a
+  value: `IF node IS InlineNode` (a port renders it as `instanceof`, pattern matching, a
+  discriminant field...). Inside that branch the value is used as that class.
 * Every other comparison uses the operators of §9.
 
 ---

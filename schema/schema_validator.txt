@@ -39,8 +39,8 @@ CLASS SchemaValidator IMPLEMENTS Validator
 
         errors.pushAll(validateAgainstSchema(node, sch))
 
-        # Optional recursive validation of the children
-        IF recursive_validation
+        # Optional recursive validation of the children (only an InlineNode has any)
+        IF recursive_validation AND node IS InlineNode
             FOREACH n IN node.getChildren()
                 errors.pushAll(validate(n))
             END FOREACH
@@ -55,12 +55,12 @@ CLASS SchemaValidator IMPLEMENTS Validator
 
         errors: ValidationException[] = []
 
-        schema_node: NodeDefinition = sch.getNodeDefinition(node.getNormalizedName())
+        schema_node: NodeDefinition = sch.getNodeDefinition(node.getCanonicalName())
 
         # Closed model: the node MUST be defined in the schema of its namespace
         IF schema_node IS NULL
             errors.push(ValidationException(node.getLine(), "NODE_NOT_EXIST_IN_SCHEMA",
-                "NOT EXIST NODE " + node.getNormalizedName() + " for namespace " + sch.getNamespace()))
+                "NOT EXIST NODE " + node.getCanonicalName() + " for namespace " + sch.getNamespace()))
             RETURN errors
         END IF
 
@@ -71,6 +71,15 @@ CLASS SchemaValidator IMPLEMENTS Validator
         RETURN errors
     END FUNCTION
 
+
+    # The children of a node for the purposes of the content model: a TextNode has none
+    FUNCTION childrenOf(node: Node): Node[]
+        IF node IS InlineNode
+            RETURN node.getChildren()
+        END IF
+        RETURN []
+    END FUNCTION
+
     # Closed content model (STXT-SCHEMA-SPEC §6): only the direct children declared in
     # the definition of the parent are allowed; with no Children declared, none is.
     # The error is reported on the line of the offending child.
@@ -78,7 +87,7 @@ CLASS SchemaValidator IMPLEMENTS Validator
 
         errors: ValidationException[] = []
 
-        FOREACH child IN node.getChildren()
+        FOREACH child IN childrenOf(node)
             IF NOT ns_node.getChildren().containsKey(child.getQualifiedName())
                 errors.push(ValidationException(child.getLine(), "CHILD_NOT_DECLARED",
                     "Child '" + child.getQualifiedName() + "' not declared in node '" + node.getQualifiedName() + "'"))
@@ -122,7 +131,7 @@ CLASS SchemaValidator IMPLEMENTS Validator
         count: MAP<STRING, INTEGER> = {}
         children_by_name: MAP<STRING, Node[]> = {}
 
-        FOREACH child IN node.getChildren()
+        FOREACH child IN childrenOf(node)
             child_name: STRING = child.getQualifiedName()
 
             IF count.containsKey(child_name)

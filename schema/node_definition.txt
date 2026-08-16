@@ -5,7 +5,7 @@
 CLASS NodeDefinition
 
     FIELD name: STRING
-    FIELD normalized_name: STRING
+    FIELD canonical_name: STRING
     FIELD type: STRING
     FIELD description: STRING       # optional description of the node, or NULL
 
@@ -17,7 +17,7 @@ CLASS NodeDefinition
 
     CONSTRUCTOR (name, type, line, description)
         name            = compactSpaces(name)
-        normalized_name = normalizeChars(name)
+        canonical_name = normalizeChars(name)
         type            = type
         description     = description
 
@@ -32,8 +32,8 @@ CLASS NodeDefinition
         RETURN name
     END FUNCTION
 
-    FUNCTION getNormalizedName(): STRING
-        RETURN normalized_name
+    FUNCTION getCanonicalName(): STRING
+        RETURN canonical_name
     END FUNCTION
 
     FUNCTION getType(): STRING

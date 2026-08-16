@@ -8,7 +8,8 @@
 INTERFACE Observer
 
     # Called when a node is opened (its children and its text lines are not complete yet).
-    # line_string is the source line that opened the node, as it appears in the document.
+    # The node is already attached to its parent, so getParent(), the effective namespace and
+    # getLevel() are available. line_string is the source line that opened the node.
     PROCEDURE onCreate(node: Node, line_string: STRING)
 
     # Called when a node is closed, with all its children and its value already complete.
@@ -20,6 +21,6 @@ INTERFACE Observer
     # Called for every text line appended to an open BLOCK node.
     # line_string is the source line; line_indent is the same line already split
     # into indentation and content.
-    PROCEDURE onTextLine(node: Node, line_number: INTEGER, line_string: STRING, line_indent: LineIndent)
+    PROCEDURE onTextLine(node: TextNode, line_number: INTEGER, line_string: STRING, line_indent: LineIndent)
 
 END INTERFACE
