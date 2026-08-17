@@ -15,8 +15,9 @@ disagrees with either one; this document does not create independent language ru
 
 The canonical specifications are `../stxt-web/es/stxt-*-ref.stxt`. At the time of this
 map (2026-08-16), STXT-SPEC has `Last modif: 2026-08-10`, STXT-TREE-SPEC has
-`Last modif: 2026-08-09`; schema, template and discovery specifications have
-`Last modif: 2026-08-02`. The ports this map refers to are `@stxt-lang/core` 0.7.0
+`Last modif: 2026-08-09`; STXT-SCHEMA-SPEC has `Last modif: 2026-08-17` (the `EMAIL` type
+gained the `Name <address>` form in §9.4, mirrored in `schema/types.txt`); template and
+discovery specifications have `Last modif: 2026-08-02`. The ports this map refers to are `@stxt-lang/core` 0.7.0
 (`../stxt-js`) and `dev.stxt:stxt-core` 0.7.0 (`../stxt-java`); both implement the five
 specifications and share the 0.7.0 node model described in `core/node.txt`. Since 2026-08-16
 there is a third port, `stxt` 0.7.0 for Python (`../stxt-python`), written directly from this
