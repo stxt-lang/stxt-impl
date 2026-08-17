@@ -54,7 +54,8 @@ the pseudocode's normative scope.
 | `discovery/discovery_error.txt`, `discovery_result.txt`, `discovery_resolver.txt` | STXT-DISCOVERY-SPEC §§3–10 | `src/discovery/DiscoveryError.ts`, `DiscoveryResult.ts`, `DiscoveryResolver.ts` | `dev.stxt.discovery.DiscoveryError`, `DiscoveryResult` (+ `DiscoveryDefinition`, `DiscoveryLevel`), `DiscoveryResolver` |
 
 `src/runtime/ConditionalValidator.ts` and `UnifiedSchemaProvider.ts` in TypeScript,
-and the Java `runtime.STXT` / resource-loader facades, are consumer conveniences.
+`dev.stxt.runtime.ConditionalValidator` and the Java `runtime.STXT` / resource-loader
+facades, are consumer conveniences.
 They may be documented by ports but are not normative pseudocode modules.
 
 ## Conformance obligations by specification
