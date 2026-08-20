@@ -12,7 +12,7 @@ END FUNCTION
 
 # Canonical node name (STXT-SPEC §4.3). Diacritics and non-Latin letters are KEPT:
 # name equality is insensitive to case and separators, but sensitive to accents and
-# alphabet, following the IDN model. E.g. "Año" == "año", but "Año" != "Ano".
+# alphabet, following the IDN model. E.g. "Caña" == "caña", but "Caña" != "Cana".
 #
 # Process:
 #   1. Trim
