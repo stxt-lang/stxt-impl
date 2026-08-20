@@ -30,7 +30,21 @@ CLASS SchemaValidator IMPLEMENTS Validator
         errors: ValidationException[] = []
 
         namespace: STRING = node.getNamespace()
-        sch: Schema       = schema_provider.getSchema(namespace)
+
+        # The empty namespace is never validated (STXT-SCHEMA-SPEC §5): a node that neither
+        # declares nor inherits a namespace is valid by definition, no schema is looked up
+        # for it and SCHEMA_NOT_FOUND is never reported for it. Its children are still
+        # walked when recursive, because one of them may declare a namespace of its own.
+        IF namespace == ""
+            IF recursive_validation AND node IS InlineNode
+                FOREACH n IN node.getChildren()
+                    errors.pushAll(validate(n))
+                END FOREACH
+            END IF
+            RETURN errors
+        END IF
+
+        sch: Schema = schema_provider.getSchema(namespace)
 
         IF sch IS NULL
             errors.push(ValidationException(node.getLine(), "SCHEMA_NOT_FOUND", "Not found schema: " + namespace))

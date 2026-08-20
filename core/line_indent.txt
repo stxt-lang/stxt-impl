@@ -61,7 +61,10 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
 
         ELSE IF c == COMMENT_CHAR
             # Comment line: produces no node; its indentation is NOT validated (§11).
-            # The Parser hands it over to the observers (Observer.onComment).
+            # Reached only when the line is not block text (a '#' deeper than an open block
+            # is caught as text by the check below, before getting here), so inside an open
+            # block a comment always has indent <= the block node: the Parser closes the
+            # block (§9.1) and then hands the comment over to the observers (Observer.onComment).
             RETURN LineIndent(level, line.substring(pointer + 1), true, false, pointer)
 
         ELSE
