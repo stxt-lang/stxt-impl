@@ -17,7 +17,8 @@ END FUNCTION
 # Process:
 #   1. Trim
 #   2. Unicode NFC normalization (precomposed and decomposed forms become equivalent)
-#   3. Lower case (Unicode case folding)
+#   3. Unicode lower case, locale-independent (NOT full case folding: 'ß' is kept and
+#      differs from 'ss'; STXT-SPEC §4.3)
 #   4. Every run of separators ('-', '_', spaces) becomes a single '-'
 #   5. Leading and trailing '-' are removed
 #
