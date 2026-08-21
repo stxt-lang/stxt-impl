@@ -17,14 +17,14 @@ CLASS LineIndent
     FIELD line_without_indent: STRING   # content with the indentation already removed
     FIELD is_comment: BOOLEAN           # true if the line is a comment ('#')
     FIELD is_block: BOOLEAN             # true if the line is a text line of an open BLOCK node ('>>')
-    FIELD indent_length: INTEGER        # number of characters the indentation took up
+    FIELD content_start: INTEGER        # index of the first character of the content, i.e. the number of characters the indentation took up
 
-    CONSTRUCTOR LineIndent(indent_level, line_without_indent, is_comment, is_block, indent_length)
+    CONSTRUCTOR LineIndent(indent_level, line_without_indent, is_comment, is_block, content_start)
         indent_level        = indent_level
         line_without_indent = line_without_indent
         is_comment          = is_comment
         is_block            = is_block
-        indent_length       = indent_length
+        content_start       = content_start
     END CONSTRUCTOR
 
     # true if the line has no content beyond blanks (SPACE/TAB only, STXT-SPEC §4):
@@ -90,7 +90,9 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
                 THROW ParseException(num_line, "INDENTATION_MIXED", "Mixed tabs and spaces in indentation")
             END IF
 
-            RETURN LineIndent(level, text, false, true, pointer)
+            # pointer is the index of the indentation character that crossed the block
+            # level; the indentation took pointer + 1 characters
+            RETURN LineIndent(level, text, false, true, pointer + 1)
         END IF
 
         pointer = pointer + 1
