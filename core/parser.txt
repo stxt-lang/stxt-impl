@@ -99,10 +99,12 @@ CLASS Parser
             # Split the line into indentation and content
             line_indent: LineIndent = parseLine(line_string, last_node_block, last_level, line_number)
 
-            # Comment line: produces no node. A comment with indentation <= the level of an
-            # open BLOCK node closes that block (STXT-SPEC §6.1, §9.1): a block is a literal and
-            # cannot be commented from inside. Only the block closes; the comment does not
-            # touch the rest of the hierarchy (its indentation is never validated, §11).
+            # Comment line: produces no node. Its indentation was validated by parseLine like
+            # a node's (§9), but it never becomes the reference level: last_level is only
+            # updated by nodes. A comment with indentation <= the level of an open BLOCK node
+            # closes that block (STXT-SPEC §6.1, §9.1): a block is a literal and cannot be
+            # commented from inside. Only the block closes; the comment does not touch the
+            # rest of the hierarchy.
             IF line_indent.is_comment
                 IF last_node_block
                     closeToLevel(stack, stack.size() - 1, result)

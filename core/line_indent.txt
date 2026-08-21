@@ -7,8 +7,10 @@
 #   * 1 level = 1 TAB or TAB_SPACES spaces.
 #   * The indentation of a single line MUST be homogeneous: only tabs or only spaces.
 #     Mixing both in the same line is a parse error: MIXED_INDENTATION (§8.1, §8.3).
-#   * Comment lines and empty lines are never an error: their indentation is not
-#     validated (§11).
+#   * Comment lines are validated like node lines (§9, §11): homogeneous indentation, a
+#     multiple of TAB_SPACES when spaces, and a level of at most last_level + 1. They
+#     produce no node and never move the hierarchy (the Parser does not update last_level
+#     for them). Empty lines are never an error: their indentation is not validated.
 
 CLASS LineIndent
     FIELD indent_level: INTEGER         # indentation level of the line
@@ -41,6 +43,7 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
     pointer: INTEGER = 0
     saw_space: BOOLEAN = false
     saw_tab: BOOLEAN = false
+    is_comment: BOOLEAN = false
 
     WHILE pointer < line.length()
 
@@ -61,12 +64,14 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
             spaces = 0
 
         ELSE IF c == COMMENT_CHAR
-            # Comment line: produces no node; its indentation is NOT validated (§11).
-            # Reached only when the line is not block text (a '#' deeper than an open block
-            # is caught as text by the check below, before getting here), so inside an open
-            # block a comment always has indent <= the block node: the Parser closes the
-            # block (§9.1) and then hands the comment over to the observers (Observer.onComment).
-            RETURN LineIndent(level, line.substring(pointer + 1), true, false, pointer)
+            # Comment line: produces no node, but its indentation is validated below exactly
+            # like a node's (§9). Reached only when the line is not block text (a '#' deeper
+            # than an open block is caught as text by the check below, before getting here),
+            # so inside an open block a comment always has indent <= the block node: the
+            # Parser closes the block (§9.1) and then hands the comment over to the observers
+            # (Observer.onComment).
+            is_comment = true
+            BREAK
 
         ELSE
             # First non space/tab/comment character: end of indentation
@@ -115,9 +120,15 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
         THROW ParseException(num_line, "INVALID_NUMBER_SPACES", "There are " + spaces + " spaces before node")
     END IF
 
-    # Validate indentation level progression (no jumps, §11.3)
+    # Validate indentation level progression (no jumps, §11.3). Comments included (§9):
+    # last_level is the level of the last NODE, a comment never becomes the reference.
     IF level > (last_level + 1)
         THROW ParseException(num_line, "INDENTATION_LEVEL_NOT_VALID", "Level of indent incorrect: " + level)
+    END IF
+
+    # Comment: the text after '#', verbatim
+    IF is_comment
+        RETURN LineIndent(level, line.substring(pointer + 1), true, false, pointer)
     END IF
 
     # General case: return the line without the consumed indentation

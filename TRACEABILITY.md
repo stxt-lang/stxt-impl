@@ -14,7 +14,8 @@ into platform-neutral algorithms and data contracts. A port must be corrected wh
 disagrees with either one; this document does not create independent language rules.
 
 The canonical specifications are `../stxt-web/es/stxt-*-ref.stxt`. At the time of this
-map (2026-08-16, updated 2026-08-21), STXT-SPEC has `Last modif: 2026-08-21` (*blank* defined as
+map (2026-08-16, updated 2026-08-21), STXT-SPEC has `Last modif: 2026-08-21` (comment indentation
+validated like a node's, §9, the 0.9.0 change; *blank* defined as
 U+0020/U+0009 only, §4; comments close `>>` blocks, §6.1/§9.1; combining marks `Mn`/`Mc` allowed
 in names, §4.2), STXT-TREE-SPEC has
 `Last modif: 2026-08-09`; STXT-SCHEMA-SPEC has `Last modif: 2026-08-20` (the empty namespace is never validated,
@@ -72,7 +73,10 @@ The parser must accept UTF-8 with optional BOM, LF and CRLF; implement both node
 forms; preserve sibling/root order; support multiple roots; calculate indentation by
 level; and preserve the literal behaviour of `>>` blocks, including blank lines, with
 any non-empty line at the block node's level or shallower — comments included — closing
-the block (STXT-SPEC §9.1, since 2026-08-20; before, comments were transparent to blocks). Names use NFC for identity, preserve accents, and namespaces
+the block (STXT-SPEC §9.1, since 2026-08-20; before, comments were transparent to blocks). Since
+2026-08-21 (the 0.9.0 ports) the indentation of a comment is validated like a node's —
+homogeneous, multiple of four, level at most last node + 1 — without the comment ever becoming
+the reference level (STXT-SPEC §9; before, comments could sit at any indentation). Names use NFC for identity, preserve accents, and namespaces
 are ASCII and inherited only vertically. The authoritative algorithms are in
 `core/parser.txt`, `line_indent.txt`, `name_namespace.txt`, `node.txt` and
 `string_utils.txt`.
@@ -175,4 +179,5 @@ the shared `stxt-web` corpus. (Python: `test_core.py`, `test_providers.py`,
 | Empty namespace is never validated | A `SchemaValidator` (recursive) over a provider that knows nothing validates `Doc: x` with a free child and a child declaring an unknown namespace. | No finding for the root or the free child (namespace `""` is valid by definition, no lookup, no `SCHEMA_NOT_FOUND`); exactly one `SCHEMA_NOT_FOUND` for the namespaced child, at its line. STXT-SCHEMA-SPEC §5, since 2026-08-20. |
 | Combining marks in names | The names `हिंदी` (Devanagari, with `Mc`/`Mn` vowel signs) and `Q` + U+0301 (no precomposed form); and the names U+0301 alone and `a` + U+20DD (enclosing mark, `Me`). | The first two parse, canonical names `हिंदी` and `q` + U+0301; the last two are `INVALID_NODE_NAME` (a name needs a letter or digit; `Me` is not allowed). Conformance pair `conformance/tree/marks` (STXT-SPEC §4.2, since 2026-08-20). |
 | Blanks are only space and tab | `Root:` with children `Trailing: Joan<NBSP>`, `Leading:<NBSP>Joan`, `Only:<NBSP>` and a `Block >>` whose lines carry NBSP at the end, alone and in the middle; also a root line holding only an NBSP, `Block >><NBSP>`, and the names `Name<NBSP>: x` and `A<NBSP>B: x`. | Every NBSP is kept: values `"Joan<NBSP>"`, `"<NBSP>Joan"`, `"<NBSP>"`, block lines `["first<NBSP>", "<NBSP>", "in<NBSP>the<NBSP>middle"]`. The NBSP-only line is `INVALID_LINE` (not empty), `>>` followed by NBSP is `INLINE_VALUE_NOT_VALID`, and both names are `INVALID_NODE_NAME`; a line of spaces and tabs is still empty. `core/string_utils.txt` `trim`/`rightTrim`/`compactSpaces` work on U+0020/U+0009 only, never the platform trim. Conformance pair `conformance/tree/nbsp` (STXT-SPEC §4, since 2026-08-21). |
+| Comment indentation | `Root:` followed by comments at levels 0, 1 and, after a childless `First: 1` at level 1, at level 2; a comment right after a `>>` block at the block's level; a root after a level-0 comment. Also `Root:` followed by a comment with three spaces, by one at level 2, and by one mixing a tab and spaces. | The first document parses and its tree is `conformance/tree/comment-indent`: the comments leave no trace and the node after each one is checked against the last node, not the comment (`Second` at level 1 after a level-2 comment is fine). The three others are rejected with the node codes: `INVALID_NUMBER_SPACES`, `INDENTATION_LEVEL_NOT_VALID`, `MIXED_INDENTATION`. STXT-SPEC §9, §11, since 2026-08-21. |
 | Comment closes a block | `Root:` with a `Body >>` child holding two text lines, the second one `# still text`; then a comment line at the level of `Body` (or shallower); then a sibling `After: x`. Also the same document with a text line after the comment. | The block has exactly the two text lines (the `#` one is text), the comment closes it, and `After` is a sibling of `Body`; nothing above the block closes. With a text line after the comment, the document is rejected (`INDENTATION_LEVEL_NOT_VALID`, or `INVALID_LINE` when the block is a root). Blank lines after the closing comment are not block content. Conformance pair `conformance/tree/comment-closes-block` (STXT-SPEC §6.1, §9.1, since 2026-08-20). |
