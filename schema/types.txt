@@ -70,7 +70,7 @@ CLASS TypeRegistry
 
     PROCEDURE register(instance: Type)
         IF registry.containsKey(instance.getName())
-            THROW RuntimeException("DUPLICATED_TYPE", "Type already defined: " + instance.getName())
+            THROW RuntimeException("TYPE_DUPLICATED", "Type already defined: " + instance.getName())
         END IF
         registry.put(instance.getName(), instance)
     END PROCEDURE
@@ -110,7 +110,7 @@ CLASS INLINE IMPLEMENTS Type
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
         # INLINE value form (§9.2): the block '>>' form is not allowed
         IF n.isTextNode()
-            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+            THROW ValidationException(n.getLine(), "BLOCK_FORM_NOT_ALLOWED", "Not allowed text in node " + n.getQualifiedName())
         END IF
     END PROCEDURE
 END CLASS
@@ -124,7 +124,7 @@ CLASS GROUP IMPLEMENTS Type
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
         # NONE value form (§9.2)
         IF n.isTextNode() OR NOT isEmpty(n.getText())
-            THROW ValidationException(n.getLine(), "INVALID_VALUE", "Node '" + n.getName() + "' has to be empty")
+            THROW ValidationException(n.getLine(), "VALUE_NOT_ALLOWED", "Node '" + n.getName() + "' has to be empty")
         END IF
     END PROCEDURE
 END CLASS
@@ -152,7 +152,7 @@ CLASS TEXT IMPLEMENTS Type
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
         # Only an InlineNode has children
         IF n IS InlineNode AND n.getChildren().size() > 0
-            THROW ValidationException(n.getLine(), "NOT_ALLOWED_CHILDREN_TEXT", "Not allowed children nodes in node " + n.getQualifiedName())
+            THROW ValidationException(n.getLine(), "CHILDREN_NOT_ALLOWED", "Not allowed children nodes in node " + n.getQualifiedName())
         END IF
     END PROCEDURE
 END CLASS
@@ -167,7 +167,7 @@ CLASS MARKDOWN IMPLEMENTS Type
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
         # Only an InlineNode has children
         IF n IS InlineNode AND n.getChildren().size() > 0
-            THROW ValidationException(n.getLine(), "NOT_ALLOWED_CHILDREN_TEXT", "Not allowed children nodes in node " + n.getQualifiedName())
+            THROW ValidationException(n.getLine(), "CHILDREN_NOT_ALLOWED", "Not allowed children nodes in node " + n.getQualifiedName())
         END IF
     END PROCEDURE
 END CLASS
@@ -181,7 +181,7 @@ CLASS ENUM IMPLEMENTS Type
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
         # INLINE value form (§9.3): the block '>>' form is not allowed
         IF n.isTextNode()
-            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+            THROW ValidationException(n.getLine(), "BLOCK_FORM_NOT_ALLOWED", "Not allowed text in node " + n.getQualifiedName())
         END IF
 
         value: STRING = n.getText()
@@ -209,7 +209,7 @@ CLASS RegexValue IMPLEMENTS Type
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
         # INLINE value form: the block '>>' form is not allowed
         IF n.isTextNode()
-            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+            THROW ValidationException(n.getLine(), "BLOCK_FORM_NOT_ALLOWED", "Not allowed text in node " + n.getQualifiedName())
         END IF
 
         value: STRING = n.getText()
@@ -295,7 +295,7 @@ CLASS DATE IMPLEMENTS Type
 
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
         IF n.isTextNode()
-            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+            THROW ValidationException(n.getLine(), "BLOCK_FORM_NOT_ALLOWED", "Not allowed text in node " + n.getQualifiedName())
         END IF
         value: STRING = n.getText()
         m = P_DATE.match(value)
@@ -315,7 +315,7 @@ CLASS TIME IMPLEMENTS Type
 
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
         IF n.isTextNode()
-            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+            THROW ValidationException(n.getLine(), "BLOCK_FORM_NOT_ALLOWED", "Not allowed text in node " + n.getQualifiedName())
         END IF
         value: STRING = n.getText()
         m = P_TIME.match(value)
@@ -336,7 +336,7 @@ CLASS TIMESTAMP IMPLEMENTS Type
 
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
         IF n.isTextNode()
-            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+            THROW ValidationException(n.getLine(), "BLOCK_FORM_NOT_ALLOWED", "Not allowed text in node " + n.getQualifiedName())
         END IF
         value: STRING = n.getText()
         m = P_TIMESTAMP.match(value)
@@ -406,7 +406,7 @@ CLASS URL IMPLEMENTS Type
     PROCEDURE validate(ns_node: NodeDefinition, n: Node)
         # INLINE value form (§9.4): the block '>>' form is not allowed
         IF n.isTextNode()
-            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+            THROW ValidationException(n.getLine(), "BLOCK_FORM_NOT_ALLOWED", "Not allowed text in node " + n.getQualifiedName())
         END IF
 
         url: STRING = n.getText()

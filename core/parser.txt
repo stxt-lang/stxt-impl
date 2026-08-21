@@ -184,7 +184,7 @@ CLASS Parser
                     result.addError(pe)
                 CATCH e
                     # A validator that throws unexpectedly does not abort the parse
-                    result.addError(ParseException(completed.getLine(), "VALIDATION_ERROR", e.getMessage()))
+                    result.addError(ParseException(completed.getLine(), "UNEXPECTED_ERROR", e.getMessage()))
                 END TRY
             END FOREACH
 
@@ -240,7 +240,7 @@ FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER): Node
 
     # A '>>' node cannot carry significant inline content on the same line (§11.4)
     IF is_text_node AND NOT trim(value).isEmpty()    # blank-only trim: '>>' + NBSP is an error
-        THROW ParseException(line_number, "INLINE_VALUE_NOT_VALID", "Line not valid: " + line)
+        THROW ParseException(line_number, "BLOCK_VALUE_NOT_ALLOWED", "Line not valid: " + line)
     END IF
 
     # The namespace the line declares, if any ("" when it inherits)

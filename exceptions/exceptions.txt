@@ -71,3 +71,76 @@ CLASS RuntimeException
     END FUNCTION
 
 END CLASS
+
+
+# -------------------------------------------------------------------
+# Error codes (normative, since 2026-08-21; frozen from 1.0). One table per
+# specification; the condition numbers are those of the spec's error section.
+# Renamed on 2026-08-21 (0.9.1 ports): see the "was" column. Ports MUST use these
+# exact strings; messages are free text.
+# -------------------------------------------------------------------
+
+# STXT-SPEC §11.1 — syntax (ParseException)
+#   INDENTATION_SPACES_NOT_VALID   §11.1  spaces not a multiple of 4            (was INVALID_NUMBER_SPACES)
+#   INDENTATION_MIXED              §11.2  tabs and spaces on one line           (was MIXED_INDENTATION)
+#   INDENTATION_LEVEL_NOT_VALID    §11.3  jump of more than one level
+#   BLOCK_VALUE_NOT_ALLOWED        §11.4  content after '>>'                    (was INLINE_VALUE_NOT_VALID)
+#   INVALID_LINE                   §11.5-6 no ':' nor '>>', '>>' before ':', empty name
+#   INVALID_NODE_NAME              §11.7-8 empty canonical name / bad characters
+#   INVALID_NAMESPACE              §11.9  malformed namespace
+#   UNEXPECTED_ERROR               wrapper for an unforeseen exception          (was VALIDATION_ERROR / UNKNOWN_VALIDATION_ERROR)
+
+# STXT-SCHEMA-SPEC §13.1 — schema load (ValidationException)
+#   SCHEMA_ROOT_NOT_VALID          root not 'Schema (@stxt.schema): ns' or ns invalid   (was NOT_STXT_SCHEMA)
+#   SCHEMA_NAMESPACE_EMPTY         target namespace empty                              (was INVALID_SCHEMA)
+#   SCHEMA_MULTIPLE_ROOTS          != 1 root node                                      (was INVALID_SCHEMA)
+#   SCHEMA_NODE_NOT_INLINE         a schema node written with '>>'                     (was INVALID_SCHEMA)
+#   NODE_DUPLICATED                two Node with the same canonical name              (was NODE_DEF_ALREADY_DEFINED)
+#   INVALID_NODE_NAME              Node/Child value not a valid name
+#   TYPE_NOT_VALID                 unknown type                                        (also was TYPE_NOT_SUPPORTED)
+#   CHILDREN_NOT_ALLOWED_FOR_TYPE  Children on a leaf type
+#   VALUES_NOT_ALLOWED_FOR_TYPE    Values on a non-ENUM type                           (was VALUES_ONLY_SUPPORTED_BY_ENUM)
+#   CARDINALITY_NOT_VALID          Min/Max not a non-negative integer                 (was INVALID_INTEGER)
+#   MIN_GREATER_THAN_MAX           Min > Max
+#   VALUES_REQUIRED                ENUM without Values, or Values without Value        (was VALUES_EMPTY_FOR_ENUM)
+#   VALUE_DUPLICATED               two equal Value
+#   VALUES_DUPLICATED              two Values nodes in one Node; ValidationException with line (was RuntimeException INVALID_SIZE_VALUES)
+#   CHILD_DUPLICATED               two Child with the same name+namespace             (was CHILD_DEF_ALREADY_DEFINED)
+#   CHILD_NOT_DEFINED              same-namespace Child without its Node
+
+# STXT-SCHEMA-SPEC §13.1 — document validation (ValidationException)
+#   SCHEMA_NOT_FOUND               namespaced node without schema
+#   NODE_NOT_DEFINED_IN_SCHEMA     node name not a Node of its schema                  (was NODE_NOT_EXIST_IN_SCHEMA)
+#   CHILD_NOT_DECLARED             undeclared direct child (closed model)
+#   TOO_FEW_CHILDREN               count < Min                                         (was INVALID_NUMBER)
+#   TOO_MANY_CHILDREN              count > Max                                         (was INVALID_NUMBER)
+#   INVALID_VALUE                  value fails the type grammar / not an ENUM Value
+#   BLOCK_FORM_REQUIRED            inline where BLOCK is required
+#   BLOCK_FORM_NOT_ALLOWED         '>>' where inline is required                      (was NOT_ALLOWED_TEXT)
+#   VALUE_NOT_ALLOWED              value on a GROUP                                    (was INVALID_VALUE)
+#   CHILDREN_NOT_ALLOWED           children under TEXT / MARKDOWN                      (was NOT_ALLOWED_CHILDREN_TEXT)
+#   TYPE_NOT_VALID                 type of the schema unknown to the implementation   (was TYPE_NOT_SUPPORTED)
+#   UNEXPECTED_ERROR               wrapper, with the node's line
+
+# STXT-TEMPLATE-SPEC §14.1 — template load (ValidationException)
+#   TEMPLATE_ROOT_NOT_VALID, TEMPLATE_NAMESPACE_EMPTY, TEMPLATE_MULTIPLE_ROOTS   (parallel to SCHEMA_*)
+#   TEMPLATE_STRUCTURE_REQUIRED
+#   STRUCTURE_LINE_NOT_VALID                                                      (was INVALID_CHILD_LINE)
+#   CARDINALITY_NOT_VALID                                                         (was INVALID_CHILD_COUNT)
+#   MIN_GREATER_THAN_MAX, TYPE_NOT_VALID, VALUES_REQUIRED, VALUES_NOT_ALLOWED_FOR_TYPE, CHILDREN_NOT_ALLOWED_FOR_TYPE, VALUE_DUPLICATED
+#   REFERENCE_REQUIRED                                                            (was NODE_DEFINED_MULTIPLE_TIMES)
+#   REFERENCE_NOT_FOUND
+#   REFERENCE_NAME_NOT_VALID                                                      (was NODE_REFERENCE_NOT_VALID)
+#   REFERENCE_WITH_TYPE_NOT_ALLOWED, CHILDREN_NOT_ALLOWED_IN_REFERENCE, VALUES_NOT_ALLOWED_IN_REFERENCE
+#   CHILDREN_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE, VALUES_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE
+#   TYPE_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE                                        (was TYPE_DEFINITION_NOT_ALLOWED)
+#   DESCRIPTION_NODE_NOT_FOUND                                                    (was NODE_NOT_FOUND)
+#   DESCRIPTION_CHILDREN_NOT_ALLOWED                                              (was CHILDREN_DESCRIPTION_NOT_ALLOWED)
+#   DESCRIPTION_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE                                 (was EXTERNAL_DESCRIPTION_NOT_ALLOWED)
+#   DESCRIPTION_DUPLICATED                                                        (was DESCRIPTION_ALREADY_DEFINED)
+
+# STXT-DISCOVERY-SPEC §9 — DISCOVERY_NOT_PARSEABLE, DISCOVERY_NOT_A_DEFINITION, DISCOVERY_INVALID_DEFINITION, DISCOVERY_DUPLICATE_NAMESPACE (unchanged)
+
+# In-memory API (RuntimeException, not conformance surface)
+#   AMBIGUOUS_CHILD, NODE_ALREADY_ATTACHED, NODE_CYCLE, TYPE_DUPLICATED (was DUPLICATED_TYPE)
+# Internal: META_SCHEMA_INVALID, META_SCHEMA_NOT_AVAILABLE

@@ -24,7 +24,7 @@ FUNCTION parse(raw_line: STRING, line_number: INTEGER): ChildLine
 
     matcher = CHILD_LINE_PATTERN.matcher(raw_line)
     IF NOT matcher.matches()
-        THROW ValidationException(line_number, "INVALID_CHILD_LINE", "Line not valid: " + raw_line)
+        THROW ValidationException(line_number, "STRUCTURE_LINE_NOT_VALID", "Line not valid: " + raw_line)
     END IF
 
     # --- Type (or @Name reference) ---
@@ -70,7 +70,7 @@ FUNCTION parse(raw_line: STRING, line_number: INTEGER): ChildLine
         # min,max
         parts: STRING[] = split(count, ",")
         IF parts.length() != 2
-            THROW ValidationException(line_number, "INVALID_CHILD_COUNT", "Invalid count " + count + " in line: " + raw_line)
+            THROW ValidationException(line_number, "CARDINALITY_NOT_VALID", "Invalid count " + count + " in line: " + raw_line)
         END IF
 
         min = parseCount(parts[0].trim(), count, raw_line, line_number)
@@ -122,7 +122,7 @@ END FUNCTION
 # num, min and max must be NON-NEGATIVE integers, with no trailing text (§7.1).
 FUNCTION parseCount(num: STRING, count: STRING, raw_line: STRING, line_number: INTEGER): INTEGER
     IF NOT isNatural(num)
-        THROW ValidationException(line_number, "INVALID_CHILD_COUNT", "Invalid count " + count + " in line: " + raw_line)
+        THROW ValidationException(line_number, "CARDINALITY_NOT_VALID", "Invalid count " + count + " in line: " + raw_line)
     END IF
     RETURN parseInteger(num)
 END FUNCTION

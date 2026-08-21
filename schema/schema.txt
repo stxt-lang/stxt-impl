@@ -7,6 +7,9 @@ CLASS Schema
     # Namespace of the schema language itself
     CONSTANT SCHEMA_NAMESPACE: STRING = "@stxt.schema"
 
+    # Namespace of the template language (see template/template_parser.txt)
+    CONSTANT TEMPLATE_NAMESPACE: STRING = "@stxt.template"
+
     FIELD namespace: STRING
     FIELD description: STRING       # optional description of the schema, or NULL
 
@@ -44,7 +47,7 @@ CLASS Schema
 
         # Two Node definitions cannot share a canonical name (schema error)
         IF nodes.containsKey(qname)
-            THROW ValidationException(0, "NODE_DEF_ALREADY_DEFINED", "Exists a previous node definition with: " + qname)
+            THROW ValidationException(0, "NODE_DUPLICATED", "Exists a previous node definition with: " + qname)
         END IF
 
         nodes.put(qname, node_definition)

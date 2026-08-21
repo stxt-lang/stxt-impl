@@ -6,7 +6,7 @@
 # line rules of §10.2 / §10.3:
 #   * 1 level = 1 TAB or TAB_SPACES spaces.
 #   * The indentation of a single line MUST be homogeneous: only tabs or only spaces.
-#     Mixing both in the same line is a parse error: MIXED_INDENTATION (§8.1, §8.3).
+#     Mixing both in the same line is a parse error: INDENTATION_MIXED (§8.1, §8.3).
 #   * Comment lines are validated like node lines (§9, §11): homogeneous indentation, a
 #     multiple of TAB_SPACES when spaces, and a level of at most last_level + 1. They
 #     produce no node and never move the hierarchy (the Parser does not update last_level
@@ -87,7 +87,7 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
             # The prefix covering the block level MUST be homogeneous (§10.2 rule 1).
             # Empty lines are always preserved and exempt from the check (§10.3).
             IF saw_space AND saw_tab AND text.length() > 0
-                THROW ParseException(num_line, "MIXED_INDENTATION", "Mixed tabs and spaces in indentation")
+                THROW ParseException(num_line, "INDENTATION_MIXED", "Mixed tabs and spaces in indentation")
             END IF
 
             RETURN LineIndent(level, text, false, true, pointer)
@@ -112,12 +112,12 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
 
     # Mixed tabs and spaces in the indentation of the same line (§8.1, §8.3)
     IF saw_space AND saw_tab
-        THROW ParseException(num_line, "MIXED_INDENTATION", "Mixed tabs and spaces in indentation")
+        THROW ParseException(num_line, "INDENTATION_MIXED", "Mixed tabs and spaces in indentation")
     END IF
 
     # Invalid indentation: spaces not a multiple of TAB_SPACES
     IF spaces > 0
-        THROW ParseException(num_line, "INVALID_NUMBER_SPACES", "There are " + spaces + " spaces before node")
+        THROW ParseException(num_line, "INDENTATION_SPACES_NOT_VALID", "There are " + spaces + " spaces before node")
     END IF
 
     # Validate indentation level progression (no jumps, §11.3). Comments included (§9):

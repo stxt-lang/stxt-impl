@@ -58,7 +58,7 @@ CLASS NodeDefinition
 
         # Two equivalent Child entries (same canonical name + namespace) are an error
         IF children.containsKey(qname)
-            THROW ValidationException(0, "CHILD_DEF_ALREADY_DEFINED", "Exists a previous node definition with: " + qname)
+            THROW ValidationException(0, "CHILD_DUPLICATED", "Exists a previous node definition with: " + qname)
         END IF
 
         children.put(qname, child_definition)

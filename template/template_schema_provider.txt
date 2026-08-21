@@ -24,7 +24,7 @@ CLASS TemplateSchemaProviderMemory EXTENDS SchemaProviderMemory
         nodes: Node[] = parser.parse(template)
 
         IF nodes.length() != 1
-            THROW ValidationException(0, "INVALID_SCHEMA", "There are " + nodes.length() + ", and expected is 1")
+            THROW ValidationException(0, "TEMPLATE_MULTIPLE_ROOTS", "There are " + nodes.length() + ", and expected is 1")
         END IF
 
         node: Node = nodes[0]
@@ -40,7 +40,7 @@ CLASS TemplateSchemaProviderMemory EXTENDS SchemaProviderMemory
         schema: Schema = TemplateParser.transformNodeToSchema(node)
 
         IF isEmpty(schema.getNamespace())
-            THROW ValidationException(0, "INVALID_SCHEMA", "Schema namespace is empty")
+            THROW ValidationException(node.getLine(), "TEMPLATE_NAMESPACE_EMPTY", "Template namespace is empty")
         END IF
 
         schemas.put(schema.getNamespace(), schema)

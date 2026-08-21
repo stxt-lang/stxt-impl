@@ -73,7 +73,7 @@ CLASS SchemaValidator IMPLEMENTS Validator
 
         # Closed model: the node MUST be defined in the schema of its namespace
         IF schema_node IS NULL
-            errors.push(ValidationException(node.getLine(), "NODE_NOT_EXIST_IN_SCHEMA",
+            errors.push(ValidationException(node.getLine(), "NODE_NOT_DEFINED_IN_SCHEMA",
                 "NOT EXIST NODE " + node.getCanonicalName() + " for namespace " + sch.getNamespace()))
             RETURN errors
         END IF
@@ -121,7 +121,7 @@ CLASS SchemaValidator IMPLEMENTS Validator
 
         type: Type = TypeRegistry.get(node_type)
         IF type IS NULL
-            errors.push(ValidationException(n.getLine(), "TYPE_NOT_SUPPORTED", "Node type not supported: " + node_type))
+            errors.push(ValidationException(n.getLine(), "TYPE_NOT_VALID", "Node type not supported: " + node_type))
             RETURN errors
         END IF
 
@@ -130,7 +130,7 @@ CLASS SchemaValidator IMPLEMENTS Validator
         CATCH ve: ValidationException
             errors.push(ve)
         CATCH e
-            errors.push(ValidationException(n.getLine(), "VALIDATION_ERROR", e.getMessage()))
+            errors.push(ValidationException(n.getLine(), "UNEXPECTED_ERROR", e.getMessage()))
         END TRY
 
         RETURN errors
@@ -186,18 +186,18 @@ CLASS SchemaValidator IMPLEMENTS Validator
         max: INTEGER = ch_node.getMax()
 
         IF min IS NOT NULL AND num < min
-            errors.push(ValidationException(node.getLine(), "INVALID_NUMBER",
+            errors.push(ValidationException(node.getLine(), "TOO_FEW_CHILDREN",
                 num + " nodes of '" + ch_node.getQualifiedName() + "' and min is " + min))
         END IF
 
         IF max IS NOT NULL AND num > max
             # Error on the parent
-            errors.push(ValidationException(node.getLine(), "INVALID_NUMBER",
+            errors.push(ValidationException(node.getLine(), "TOO_MANY_CHILDREN",
                 num + " nodes of '" + ch_node.getQualifiedName() + "' and max is " + max))
 
             # And an error on each offending child, for line-accurate reporting
             FOREACH child IN children
-                errors.push(ValidationException(child.getLine(), "INVALID_NUMBER",
+                errors.push(ValidationException(child.getLine(), "TOO_MANY_CHILDREN",
                     "Too many '" + ch_node.getQualifiedName() + "' nodes: found " + num + ", max is " + max))
             END FOREACH
         END IF

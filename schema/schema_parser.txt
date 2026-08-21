@@ -12,7 +12,7 @@ FUNCTION inline(node: Node): InlineNode
     IF node IS InlineNode
         RETURN node
     END IF
-    THROW ValidationException(node.getLine(), "INVALID_SCHEMA", "Node '" + node.getName() + "' must be inline in a schema")
+    THROW ValidationException(node.getLine(), "SCHEMA_NODE_NOT_INLINE", "Node '" + node.getName() + "' must be inline in a schema")
 END FUNCTION
 
 # Turns the root node of a schema document into a Schema.
@@ -23,10 +23,20 @@ FUNCTION transformNodeToSchema(node: Node): Schema
 
     # The root MUST be "schema" in the @stxt.schema namespace
     IF node_name != "schema" OR namespace_schema != Schema.SCHEMA_NAMESPACE
-        THROW ValidationException(node.getLine(), "NOT_STXT_SCHEMA",
+        THROW ValidationException(node.getLine(), "SCHEMA_ROOT_NOT_VALID",
             "Expected schema(" + Schema.SCHEMA_NAMESPACE + ") but got " + node_name + "(" + namespace_schema + ")")
     END IF
     root: InlineNode = inline(node)
+
+    # The target namespace (the inline value of the root) MUST be empty or syntactically
+    # valid: the same format rule as core/validations.txt (NAMESPACE_FORMAT), reported
+    # here with the schema code instead of INVALID_NAMESPACE. Emptiness itself is
+    # checked by the provider (SCHEMA_NAMESPACE_EMPTY), not here.
+    target: STRING = root.getValue()
+    IF NOT isEmpty(target) AND NOT NAMESPACE_FORMAT.matches(target.toLowerCase())
+        THROW ValidationException(root.getLine(), "SCHEMA_ROOT_NOT_VALID",
+            "Schema namespace not valid: " + target)
+    END IF
 
     # Optional description of the schema
     description: STRING = NULL
@@ -107,12 +117,14 @@ FUNCTION createNodeDefinition(node: Node, namespace: STRING): NodeDefinition
     IF values.size() > 0
 
         IF type != "ENUM"
-            THROW ValidationException(n.getLine(), "VALUES_ONLY_SUPPORTED_BY_ENUM",
+            THROW ValidationException(n.getLine(), "VALUES_NOT_ALLOWED_FOR_TYPE",
                 "Values only supported for type ENUM, not for type " + type)
         END IF
 
+        # A Node holds at most one "Values:" node; the error points at the second one
         IF values.size() > 1
-            THROW RuntimeException("INVALID_SIZE_VALUES", "Unexpected number of values: " + values.size())
+            THROW ValidationException(values[1].getLine(), "VALUES_DUPLICATED",
+                "Unexpected number of values: " + values.size())
         END IF
 
         # Collect every "Value:" inside the "Values:" node
@@ -125,7 +137,7 @@ FUNCTION createNodeDefinition(node: Node, namespace: STRING): NodeDefinition
 
     # An ENUM MUST declare at least one value
     IF type == "ENUM" AND values.size() == 0
-        THROW ValidationException(n.getLine(), "VALUES_EMPTY_FOR_ENUM", "ENUM Type must include values")
+        THROW ValidationException(n.getLine(), "VALUES_REQUIRED", "ENUM Type must include values")
     END IF
 
     RETURN result
@@ -163,7 +175,7 @@ FUNCTION getInteger(node: InlineNode, child_name: STRING): INTEGER
 
     # Fail loudly when the value is not a valid integer
     IF NOT isInteger(n.getText())
-        THROW ValidationException(node.getLine(), "INVALID_INTEGER", "Integer not valid: " + n.getText())
+        THROW ValidationException(node.getLine(), "CARDINALITY_NOT_VALID", "Integer not valid: " + n.getText())
     END IF
 
     RETURN parseInteger(n.getText())

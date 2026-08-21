@@ -13,8 +13,21 @@
 # Turns the root node "Template (@stxt.template): <ns>" into a Schema.
 FUNCTION transformNodeToSchema(node: Node): Schema
 
+    # The root MUST be "template" in the @stxt.template namespace, and its value (the
+    # target namespace) MUST be empty or syntactically valid (NAMESPACE_FORMAT of
+    # core/validations.txt). Parallel of SCHEMA_ROOT_NOT_VALID in schema/schema_parser.txt;
+    # emptiness is checked by the provider (TEMPLATE_NAMESPACE_EMPTY).
+    IF node.getCanonicalName() != "template" OR node.getNamespace() != Schema.TEMPLATE_NAMESPACE
+        THROW ValidationException(node.getLine(), "TEMPLATE_ROOT_NOT_VALID",
+            "Expected template(" + Schema.TEMPLATE_NAMESPACE + ") but got " + node.getCanonicalName() + "(" + node.getNamespace() + ")")
+    END IF
+    target: STRING = node.getText()
+    IF NOT isEmpty(target) AND NOT NAMESPACE_FORMAT.matches(target.toLowerCase())
+        THROW ValidationException(node.getLine(), "TEMPLATE_ROOT_NOT_VALID", "Template namespace not valid: " + target)
+    END IF
+
     # The inline value of "Template" is the target namespace
-    result: Schema = Schema(node.getText(), node.getLine(), NULL)
+    result: Schema = Schema(target, node.getLine(), NULL)
 
     # Locate the mandatory "Structure >>" block (a template is an inline root; a text root
     # has no children, hence no Structure)
@@ -66,7 +79,7 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
     # grammar. In particular it MUST use ':'; a core BLOCK node ('>>') is invalid
     # here even when its text happens to be empty (STXT-TEMPLATE-SPEC §6.3).
     IF NOT node IS InlineNode
-        THROW ValidationException(node.getLine(), "INVALID_CHILD_LINE",
+        THROW ValidationException(node.getLine(), "STRUCTURE_LINE_NOT_VALID",
             "Template Structure lines must use ':'")
     END IF
     # From here on node IS InlineNode: value and children are available
@@ -87,7 +100,7 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
     IF namespace != schema.getNamespace()
         type: STRING = cl.getType()
         IF type IS NOT NULL AND NOT type.trim().isEmpty()
-            THROW ValidationException(node.getLine(), "TYPE_DEFINITION_NOT_ALLOWED",
+            THROW ValidationException(node.getLine(), "TYPE_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE",
                 "Not allowed type definition in external namespaces")
         END IF
 
@@ -134,7 +147,7 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
         IF values IS NOT NULL
             IF type != "ENUM"
                 # Same code as SchemaParser: a template is sugar equivalent to a schema
-                THROW ValidationException(node.getLine(), "VALUES_ONLY_SUPPORTED_BY_ENUM",
+                THROW ValidationException(node.getLine(), "VALUES_NOT_ALLOWED_FOR_TYPE",
                     "Values only supported for type ENUM, not for type " + type)
             END IF
 
@@ -145,7 +158,7 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
 
         # An ENUM with no list of values is an invalid template (§9 and §13.7)
         IF type == "ENUM" AND (values IS NULL OR values.length() == 0)
-            THROW ValidationException(node.getLine(), "VALUES_EMPTY_FOR_ENUM", "ENUM Type must include values")
+            THROW ValidationException(node.getLine(), "VALUES_REQUIRED", "ENUM Type must include values")
         END IF
 
     ELSE
@@ -154,7 +167,7 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
 
         # A reappearance without "@" would redefine an existing node: error.
         IF type IS NULL OR NOT type.startsWith("@")
-            THROW ValidationException(node.getLine(), "NODE_DEFINED_MULTIPLE_TIMES",
+            THROW ValidationException(node.getLine(), "REFERENCE_REQUIRED",
                 "Multiple node reference must start with @: " + node.getName())
         END IF
 
@@ -169,7 +182,7 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
 
         # The name of the reference MUST match (canonically) the one of the line (§14.12)
         IF normalizeChars(reference) != node.getCanonicalName()
-            THROW ValidationException(node.getLine(), "NODE_REFERENCE_NOT_VALID",
+            THROW ValidationException(node.getLine(), "REFERENCE_NAME_NOT_VALID",
                 "Reference must be '@" + node.getName() + "', not '" + reference + "'")
         END IF
 
@@ -201,7 +214,7 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
 
         # §6.3 again: every Structure line uses ':', so a child is inline too
         IF NOT child IS InlineNode
-            THROW ValidationException(child.getLine(), "INVALID_CHILD_LINE",
+            THROW ValidationException(child.getLine(), "STRUCTURE_LINE_NOT_VALID",
                 "Template Structure lines must use ':'")
         END IF
         cl = ChildLineParser.parse(child.getValue(), child.getLine())
@@ -258,26 +271,26 @@ PROCEDURE addDescriptions(schema: Schema, nodes: Node[])
 
         # No external descriptions
         IF namespace != schema.getNamespace()
-            THROW ValidationException(node.getLine(), "EXTERNAL_DESCRIPTION_NOT_ALLOWED",
+            THROW ValidationException(node.getLine(), "DESCRIPTION_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE",
                 "Not allowed description in external namespaces")
         END IF
 
         # No children either
         IF node IS InlineNode AND node.getChildren().size() > 0
-            THROW ValidationException(node.getLine(), "CHILDREN_DESCRIPTION_NOT_ALLOWED",
+            THROW ValidationException(node.getLine(), "DESCRIPTION_CHILDREN_NOT_ALLOWED",
                 "Not allowed children in description")
         END IF
 
         # The described node MUST exist in the schema
         node_def: NodeDefinition = schema.getNodeDefinition(node.getName())
         IF node_def IS NULL
-            THROW ValidationException(node.getLine(), "NODE_NOT_FOUND",
+            THROW ValidationException(node.getLine(), "DESCRIPTION_NODE_NOT_FOUND",
                 "Not found node with name: " + node.getName())
         END IF
 
         # At most one description per node (§12)
         IF node_def.getDescription() IS NOT NULL
-            THROW ValidationException(node.getLine(), "DESCRIPTION_ALREADY_DEFINED",
+            THROW ValidationException(node.getLine(), "DESCRIPTION_DUPLICATED",
                 "Exists a previous description for node: " + node.getName())
         END IF
 

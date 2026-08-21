@@ -65,7 +65,7 @@ CLASS SchemaProviderMemory IMPLEMENTS SchemaProvider
         nodes: Node[] = parser.parse(text)
 
         IF nodes.length() != 1
-            THROW ValidationException(0, "INVALID_SCHEMA", "There are " + nodes.length() + ", and expected is 1")
+            THROW ValidationException(0, "SCHEMA_MULTIPLE_ROOTS", "There are " + nodes.length() + ", and expected is 1")
         END IF
 
         node: Node = nodes[0]
@@ -78,6 +78,11 @@ CLASS SchemaProviderMemory IMPLEMENTS SchemaProvider
         END IF
 
         schema: Schema = SchemaParser.transformNodeToSchema(node)
+
+        IF isEmpty(schema.getNamespace())
+            THROW ValidationException(node.getLine(), "SCHEMA_NAMESPACE_EMPTY", "Schema namespace is empty")
+        END IF
+
         schemas.put(schema.getNamespace(), schema)
     END PROCEDURE
 
