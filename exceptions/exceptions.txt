@@ -3,6 +3,15 @@
 #
 # All exceptions expose getMessage(); the ones below add getCode() and, where it
 # applies, getLine().
+#
+# Message framing (since 0.10.0, the same in every port): getMessage() returns ONLY
+# the description, with no code and no line — "Level of indent incorrect: 2". The
+# code and the line are separate fields, and whoever formats output (a CLI, an editor)
+# composes them; putting them in the message printed them twice. The frame lives in
+# the platform's string form of the exception (toString / __str__), so an uncaught
+# exception still says where it happened:
+#     ParseException / ValidationException:  "[CODE] line N: message"
+#     RuntimeException:                      "[CODE] message"
 
 # Syntax error detected while parsing (lexical/structural phase, not schema).
 CLASS ParseException
@@ -104,6 +113,7 @@ END CLASS
 #   MIN_GREATER_THAN_MAX           Min > Max
 #   VALUES_REQUIRED                ENUM without Values, or Values without Value        (was VALUES_EMPTY_FOR_ENUM)
 #   VALUE_DUPLICATED               two equal Value
+#   VALUE_EMPTY                    an empty Value: in an ENUM (condition 14, since 0.10.0)
 #   VALUES_DUPLICATED              two Values nodes in one Node; ValidationException with line (was RuntimeException INVALID_SIZE_VALUES)
 #   CHILD_DUPLICATED               two Child with the same name+namespace             (was CHILD_DEF_ALREADY_DEFINED)
 #   CHILD_NOT_DEFINED              same-namespace Child without its Node
@@ -128,6 +138,7 @@ END CLASS
 #   STRUCTURE_LINE_NOT_VALID                                                      (was INVALID_CHILD_LINE)
 #   CARDINALITY_NOT_VALID                                                         (was INVALID_CHILD_COUNT)
 #   MIN_GREATER_THAN_MAX, TYPE_NOT_VALID, VALUES_REQUIRED, VALUES_NOT_ALLOWED_FOR_TYPE, CHILDREN_NOT_ALLOWED_FOR_TYPE, VALUE_DUPLICATED
+#   VALUE_EMPTY                    an empty item in "[...]" ("[a, , b]", "[a, b,]"), since 0.10.0
 #   REFERENCE_REQUIRED                                                            (was NODE_DEFINED_MULTIPLE_TIMES)
 #   REFERENCE_NOT_FOUND
 #   REFERENCE_NAME_NOT_VALID                                                      (was NODE_REFERENCE_NOT_VALID)

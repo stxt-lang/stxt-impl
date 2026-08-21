@@ -101,9 +101,17 @@ FUNCTION parse(raw_line: STRING, line_number: INTEGER): ChildLine
     values_str: STRING = matcher.group("values")
     IF values_str IS NOT NULL
         values = []
+        # split MUST keep the trailing empty item ("[a, b,]" gives three parts), as the
+        # JavaScript and Python split do; in Java that is split(",", -1).
         parts: STRING[] = split(values_str, ",")
         FOREACH part IN parts
             part = part.trim()
+            # An empty item ("[a, , b]", "[a, b,]") is an error, as an empty Value: is in a
+            # schema (STXT-TEMPLATE-SPEC §14.14). Only the whole list may be empty ("[]"),
+            # which the template parser reports as VALUES_REQUIRED.
+            IF part.isEmpty() AND parts.size() > 1
+                THROW ValidationException(line_number, "VALUE_EMPTY", "Empty ENUM value in " + values_str)
+            END IF
             IF part.isEmpty()
                 CONTINUE
             END IF

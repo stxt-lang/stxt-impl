@@ -131,6 +131,11 @@ FUNCTION createNodeDefinition(node: Node, namespace: STRING): NodeDefinition
         values_node: Node = values[0]
         values = inline(values_node).getChildren("value")
         FOREACH value IN values
+            # An empty Value: is a schema error (§7.2, condition 14): an enumeration whose
+            # only valid value is the empty string makes no sense
+            IF isEmpty(value.getText())
+                THROW ValidationException(value.getLine(), "VALUE_EMPTY", "Value of ENUM cannot be empty")
+            END IF
             result.addValue(value.getText(), value.getLine())
         END FOREACH
     END IF

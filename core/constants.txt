@@ -9,3 +9,10 @@ SEP_NODE			= ":"
 SEP_TEXT_NODE		= ">>"
 DEFAULT_ENCODING	= "UTF-8"
 EMPTY_NAMESPACE		= ""
+
+# Version of the STXT specifications (STXT-SPEC, STXT-TREE-SPEC, STXT-SCHEMA-SPEC,
+# STXT-TEMPLATE-SPEC, STXT-DISCOVERY-SPEC) this implementation conforms to. It is NOT the
+# version of the port's package: two ports with different package versions read the same
+# STXT as long as this number is the same. Every port exposes it (since 0.10.0) and the
+# CLI prints it with --version. Shared by the five specifications; major.minor, no patch.
+SPEC_VERSION		= "1.0"

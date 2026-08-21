@@ -18,6 +18,16 @@ END FUNCTION
 FUNCTION parseInteger(str: STRING): INTEGER
 END FUNCTION
 
-# true if str is decodable Base64 content.
+# true if str is valid Base64 per STXT-SCHEMA-SPEC §9.5, that is, all of:
+#   1. non-empty;
+#   2. only the standard alphabet of RFC 4648 §4 ([A-Za-z0-9+/]; NOT the URL-safe '-' '_');
+#   3. optional trailing padding: at most two '=' and only at the end;
+#   4. no leftover bits: without the padding, length % 4 != 1, and the last character
+#      encodes zero bits beyond the byte boundary (one of [AQgw] when length % 4 == 2,
+#      one of [AEIMQUYcgkosw048] when length % 4 == 3); equivalently, decoding and
+#      re-encoding (padding aside) gives the same string.
+# The platform decoder is usually MORE lenient than this (ignoring invalid characters,
+# accepting the empty string, or other paddings): the port MUST check these four points
+# itself. The caller has already removed every blank (see binaryValue in schema/types.txt).
 FUNCTION isValidBase64(str: STRING): BOOLEAN
 END FUNCTION
