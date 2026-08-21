@@ -14,15 +14,17 @@ into platform-neutral algorithms and data contracts. A port must be corrected wh
 disagrees with either one; this document does not create independent language rules.
 
 The canonical specifications are `../stxt-web/es/stxt-*-ref.stxt`. At the time of this
-map (2026-08-16, updated 2026-08-20), STXT-SPEC has `Last modif: 2026-08-20` (comments close
-`>>` blocks, §6.1/§9.1; combining marks `Mn`/`Mc` allowed in names, §4.2), STXT-TREE-SPEC has
+map (2026-08-16, updated 2026-08-21), STXT-SPEC has `Last modif: 2026-08-21` (*blank* defined as
+U+0020/U+0009 only, §4; comments close `>>` blocks, §6.1/§9.1; combining marks `Mn`/`Mc` allowed
+in names, §4.2), STXT-TREE-SPEC has
 `Last modif: 2026-08-09`; STXT-SCHEMA-SPEC has `Last modif: 2026-08-20` (the empty namespace is never validated,
 §5, mirrored in `schema/schema_validator.txt`; the `EMAIL` type gained the `Name <address>`
 form in §9.4 on 2026-08-17, mirrored in `schema/types.txt`); template and
-discovery specifications have `Last modif: 2026-08-02`. The ports this map refers to are `@stxt-lang/core` 0.8.0
-(`../stxt-js`), `dev.stxt:stxt-core` 0.8.0 (`../stxt-java`) and `stxt` 0.8.0 (`../stxt-python`),
-the 2026-08-20 release carrying the three language changes of that date (comments close blocks,
-empty namespace never validated, combining marks in names); all implement the five
+discovery specifications have `Last modif: 2026-08-02`. The ports this map refers to are `@stxt-lang/core` 0.8.1
+(`../stxt-js`), `dev.stxt:stxt-core` 0.8.1 (`../stxt-java`) and `stxt` 0.8.1 (`../stxt-python`),
+the 2026-08-21 release carrying the blank definition (U+0020/U+0009 only) on top of the three
+language changes of 2026-08-20 (comments close blocks, empty namespace never validated, combining
+marks in names); all implement the five
 specifications and share the 0.7.0 node model described in `core/node.txt`. Since 2026-08-16
 there is a third port, `stxt` 0.7.0 for Python (`../stxt-python`), written directly from this
 pseudocode: it mirrors it module by module (`core/node.txt` -> `stxt/core/node.py`,
@@ -172,4 +174,5 @@ the shared `stxt-web` corpus. (Python: `test_core.py`, `test_providers.py`,
 | SchemaProvider contract | A `SchemaValidator` over the port's default provider chain (in-memory provider with the meta-schema provider as parent, or a resource-backed chain with a cache) validates a node whose namespace no provider knows. | `getSchema()` returns NULL at every level — meta providers, resource-backed providers, caches and chains included — and `validate()` returns exactly one finding, `SCHEMA_NOT_FOUND`, without throwing. No `RESOURCE_NOT_FOUND` or other not-found code surfaces from a provider. |
 | Empty namespace is never validated | A `SchemaValidator` (recursive) over a provider that knows nothing validates `Doc: x` with a free child and a child declaring an unknown namespace. | No finding for the root or the free child (namespace `""` is valid by definition, no lookup, no `SCHEMA_NOT_FOUND`); exactly one `SCHEMA_NOT_FOUND` for the namespaced child, at its line. STXT-SCHEMA-SPEC §5, since 2026-08-20. |
 | Combining marks in names | The names `हिंदी` (Devanagari, with `Mc`/`Mn` vowel signs) and `Q` + U+0301 (no precomposed form); and the names U+0301 alone and `a` + U+20DD (enclosing mark, `Me`). | The first two parse, canonical names `हिंदी` and `q` + U+0301; the last two are `INVALID_NODE_NAME` (a name needs a letter or digit; `Me` is not allowed). Conformance pair `conformance/tree/marks` (STXT-SPEC §4.2, since 2026-08-20). |
+| Blanks are only space and tab | `Root:` with children `Trailing: Joan<NBSP>`, `Leading:<NBSP>Joan`, `Only:<NBSP>` and a `Block >>` whose lines carry NBSP at the end, alone and in the middle; also a root line holding only an NBSP, `Block >><NBSP>`, and the names `Name<NBSP>: x` and `A<NBSP>B: x`. | Every NBSP is kept: values `"Joan<NBSP>"`, `"<NBSP>Joan"`, `"<NBSP>"`, block lines `["first<NBSP>", "<NBSP>", "in<NBSP>the<NBSP>middle"]`. The NBSP-only line is `INVALID_LINE` (not empty), `>>` followed by NBSP is `INLINE_VALUE_NOT_VALID`, and both names are `INVALID_NODE_NAME`; a line of spaces and tabs is still empty. `core/string_utils.txt` `trim`/`rightTrim`/`compactSpaces` work on U+0020/U+0009 only, never the platform trim. Conformance pair `conformance/tree/nbsp` (STXT-SPEC §4, since 2026-08-21). |
 | Comment closes a block | `Root:` with a `Body >>` child holding two text lines, the second one `# still text`; then a comment line at the level of `Body` (or shallower); then a sibling `After: x`. Also the same document with a text line after the comment. | The block has exactly the two text lines (the `#` one is text), the comment closes it, and `After` is a sibling of `Body`; nothing above the block closes. With a text line after the comment, the document is rejected (`INDENTATION_LEVEL_NOT_VALID`, or `INVALID_LINE` when the block is a root). Blank lines after the closing comment are not block content. Conformance pair `conformance/tree/comment-closes-block` (STXT-SPEC §6.1, §9.1, since 2026-08-20). |

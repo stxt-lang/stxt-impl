@@ -237,7 +237,7 @@ FUNCTION createNode(line_indent: LineIndent, line_number: INTEGER): Node
     END IF
 
     # A '>>' node cannot carry significant inline content on the same line (§11.4)
-    IF is_text_node AND NOT value.trim().isEmpty()
+    IF is_text_node AND NOT trim(value).isEmpty()    # blank-only trim: '>>' + NBSP is an error
         THROW ParseException(line_number, "INLINE_VALUE_NOT_VALID", "Line not valid: " + line)
     END IF
 

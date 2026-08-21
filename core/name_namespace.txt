@@ -35,7 +35,7 @@ FUNCTION parse(raw_name: STRING, inherited_namespace: STRING, line_number: INTEG
         THROW ParseException(line_number, "INVALID_LINE", "Line not valid: " + full_line)
     END IF
 
-    raw_name = raw_name.trim()
+    raw_name = trim(raw_name)    # blank-only trim (string_utils, STXT-SPEC §4)
 
     index_open: INTEGER  = raw_name.indexOf("(")
     index_close: INTEGER = raw_name.indexOf(")")
@@ -54,7 +54,7 @@ FUNCTION parse(raw_name: STRING, inherited_namespace: STRING, line_number: INTEG
             THROW ParseException(line_number, "INVALID_NAMESPACE", "Line not valid: " + full_line)
         END IF
 
-        name = raw_name.substring(0, index_open).trim()
+        name = trim(raw_name.substring(0, index_open))
 
         # NO trim here: the grammar (STXT-SPEC §7 / §16) does not allow spaces inside '( )',
         # so "( com.example )" must fail the namespace format validation later.

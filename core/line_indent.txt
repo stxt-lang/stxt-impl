@@ -25,9 +25,10 @@ CLASS LineIndent
         indent_length       = indent_length
     END CONSTRUCTOR
 
-    # true if the line has no content beyond whitespace.
+    # true if the line has no content beyond blanks (SPACE/TAB only, STXT-SPEC §4):
+    # a line holding just an NBSP is NOT empty.
     FUNCTION isEmpty(): BOOLEAN
-        RETURN line_without_indent.trim().isEmpty()
+        RETURN trim(line_without_indent).isEmpty()
     END FUNCTION
 
 END CLASS
@@ -120,6 +121,7 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
     END IF
 
     # General case: return the line without the consumed indentation
-    RETURN LineIndent(level, line.substring(pointer).trim(), false, false, pointer)
+    # trim() is the blank-only trim of string_utils, never the platform one (§4)
+    RETURN LineIndent(level, trim(line.substring(pointer)), false, false, pointer)
 
 END FUNCTION

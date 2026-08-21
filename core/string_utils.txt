@@ -1,4 +1,17 @@
 # String utilities. Unless stated otherwise, they take a STRING and return a STRING.
+#
+# BLANKS (STXT-SPEC §4, since 2026-08-21). Everywhere in this file and in the core, "blank"
+# means exactly two characters: SPACE (U+0020) and TAB (U+0009). Every trim, right trim,
+# "is the line empty?" test and separator run below works on those two characters ONLY.
+# Any other Unicode space (U+00A0 NBSP, U+3000, U+2028, ...) and any control character is
+# content. A port MUST NOT use its platform's generic trim/strip/isWhitespace, which are
+# broader (JS String.trim and Python str.strip remove all Unicode space; Java String.trim
+# removes every code point <= U+0020). Conformance pair: conformance/tree/nbsp.
+BLANKS = " " + TAB
+
+# Removes blanks (only SPACE and TAB) at both ends of str. Returns "" if str is NULL.
+FUNCTION trim (str)
+END FUNCTION
 
 # Unicode NFC normalization. It unifies the precomposed and decomposed forms of the
 # same character (for example, "é" and "e" + combining acute accent). A port MUST
@@ -6,7 +19,9 @@
 FUNCTION normalizeNFC (str)
 END FUNCTION
 
-# Trim + collapse of every inner whitespace run into a single space. Used for node names.
+# trim() + collapse of every inner run of blanks into a single space. Used for node names.
+# Only SPACE and TAB are collapsed: an NBSP inside a name stays and makes the name invalid
+# (STXT-SPEC §4.2 only allows U+0020 as the space separator).
 FUNCTION compactSpaces (str)
 END FUNCTION
 
@@ -15,11 +30,11 @@ END FUNCTION
 # alphabet, following the IDN model. E.g. "Caña" == "caña", but "Caña" != "Cana".
 #
 # Process:
-#   1. Trim
+#   1. trim() (blanks only)
 #   2. Unicode NFC normalization (precomposed and decomposed forms become equivalent)
 #   3. Unicode lower case, locale-independent (NOT full case folding: 'ß' is kept and
 #      differs from 'ss'; STXT-SPEC §4.3)
-#   4. Every run of separators ('-', '_', spaces) becomes a single '-'
+#   4. Every run of separators ('-', '_', blanks) becomes a single '-'
 #   5. Leading and trailing '-' are removed
 #
 # May return the empty string (e.g. for "___"): the caller MUST treat that as a
@@ -31,11 +46,13 @@ END FUNCTION
 FUNCTION lowerCase (str)
 END FUNCTION
 
-# Returns "" if str is NULL; otherwise str trimmed on both sides.
+# Same as trim(): kept by name for the ports that already expose it.
 FUNCTION trimToNotNull(str)
+    RETURN trim(str)
 END FUNCTION
 
-# Removes spaces and tabs at the end of the line only. Used for '>>' text block lines.
+# Removes blanks (only SPACE and TAB) at the end of the line. Used for '>>' text block
+# lines (STXT-SPEC §10.2). A trailing NBSP is kept as content.
 FUNCTION rightTrim (str)
 END FUNCTION
 
