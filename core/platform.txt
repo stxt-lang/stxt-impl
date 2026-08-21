@@ -18,10 +18,6 @@ END FUNCTION
 FUNCTION parseInteger(str: STRING): INTEGER
 END FUNCTION
 
-# Parses a URI. Returns an object with getScheme()/getHost(), or NULL if not valid.
-FUNCTION parseURI(str: STRING)
-END FUNCTION
-
 # true if str is decodable Base64 content.
 FUNCTION isValidBase64(str: STRING): BOOLEAN
 END FUNCTION

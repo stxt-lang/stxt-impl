@@ -230,7 +230,8 @@ CLASS BOOLEAN EXTENDS RegexValue
     END FUNCTION
 END CLASS
 
-# NUMBER: JSON-style number (integer, decimal, exponent notation)
+# NUMBER: decimal number with optional sign and exponent (§9.4 grammar). NOT the JSON
+# number: '+1', '1.', '.5' and '007' are accepted. A textual value, never parsed or ranged.
 CLASS NUMBER EXTENDS RegexValue
     FIELD P_NUMBER: REGEX = "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?$"
     CONSTRUCTOR ()
@@ -265,37 +266,88 @@ CLASS NATURAL EXTENDS RegexValue
     END FUNCTION
 END CLASS
 
-# DATE: YYYY-MM-DD
-CLASS DATE EXTENDS RegexValue
-    FIELD P_DATE: REGEX = "^\\d{4}-\\d{2}-\\d{2}$"
-    CONSTRUCTOR ()
-        super(P_DATE, "Invalid date")
-    END CONSTRUCTOR
+# Calendar and clock ranges shared by DATE, TIME and TIMESTAMP (§9.4 grammar, since
+# 2026-08-21): the shape is checked by the regex, the ranges by these helpers. Never the
+# platform date parser (they disagree on leniency, e.g. rolling 2026-02-30 into March).
+
+# true if year-month-day exists in the proleptic Gregorian calendar (year 0000-9999).
+FUNCTION isValidDate(year: INTEGER, month: INTEGER, day: INTEGER): BOOLEAN
+    IF month < 1 OR month > 12 OR day < 1
+        RETURN false
+    END IF
+    leap: BOOLEAN = (year MOD 4 == 0 AND year MOD 100 != 0) OR year MOD 400 == 0
+    days_in_month: INTEGER[] = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    RETURN day <= days_in_month[month - 1]
+END FUNCTION
+
+# true if hour 00-23, minute 00-59, second 00-59 (no leap second).
+FUNCTION isValidTime(hour: INTEGER, minute: INTEGER, second: INTEGER): BOOLEAN
+    RETURN hour <= 23 AND minute <= 59 AND second <= 59
+END FUNCTION
+
+# DATE: YYYY-MM-DD, an existing date of the proleptic Gregorian calendar.
+CLASS DATE IMPLEMENTS Type
+    FIELD P_DATE: REGEX = "^(\\d{4})-(\\d{2})-(\\d{2})$"
+
     FUNCTION getName(): STRING
         RETURN "DATE"
     END FUNCTION
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        IF n.isTextNode()
+            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+        END IF
+        value: STRING = n.getText()
+        m = P_DATE.match(value)
+        IF m IS NULL OR NOT isValidDate(parseInteger(m.group(1)), parseInteger(m.group(2)), parseInteger(m.group(3)))
+            THROW ValidationException(n.getLine(), "INVALID_VALUE", n.getName() + ": Invalid date (" + value + ")")
+        END IF
+    END PROCEDURE
 END CLASS
 
-# TIME: HH:MM:SS
-CLASS TIME EXTENDS RegexValue
-    FIELD P_TIME: REGEX = "^\\d{2}:\\d{2}:\\d{2}$"
-    CONSTRUCTOR ()
-        super(P_TIME, "Invalid time")
-    END CONSTRUCTOR
+# TIME: hh:mm:ss in range (00-23, 00-59, 00-59); no fraction, no zone.
+CLASS TIME IMPLEMENTS Type
+    FIELD P_TIME: REGEX = "^(\\d{2}):(\\d{2}):(\\d{2})$"
+
     FUNCTION getName(): STRING
         RETURN "TIME"
     END FUNCTION
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        IF n.isTextNode()
+            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+        END IF
+        value: STRING = n.getText()
+        m = P_TIME.match(value)
+        IF m IS NULL OR NOT isValidTime(parseInteger(m.group(1)), parseInteger(m.group(2)), parseInteger(m.group(3)))
+            THROW ValidationException(n.getLine(), "INVALID_VALUE", n.getName() + ": Invalid time (" + value + ")")
+        END IF
+    END PROCEDURE
 END CLASS
 
-# TIMESTAMP: ISO 8601 (date + time + optional zone)
-CLASS TIMESTAMP EXTENDS RegexValue
-    FIELD P_TIMESTAMP: REGEX = "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{3})?)?(Z|[+-]\\d{2}:\\d{2})?$"
-    CONSTRUCTOR ()
-        super(P_TIMESTAMP, "Invalid timestamp")
-    END CONSTRUCTOR
+# TIMESTAMP: DATE "T" hh:mm [":" ss ["." digits]] ["Z" | sign hh:mm]. Date and time in range
+# (the offset too); seconds, fraction (one or more digits) and zone optional.
+CLASS TIMESTAMP IMPLEMENTS Type
+    FIELD P_TIMESTAMP: REGEX = "^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})(?::(\\d{2})(?:\\.\\d+)?)?(?:Z|[+-](\\d{2}):(\\d{2}))?$"
+
     FUNCTION getName(): STRING
         RETURN "TIMESTAMP"
     END FUNCTION
+
+    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
+        IF n.isTextNode()
+            THROW ValidationException(n.getLine(), "NOT_ALLOWED_TEXT", "Not allowed text in node " + n.getQualifiedName())
+        END IF
+        value: STRING = n.getText()
+        m = P_TIMESTAMP.match(value)
+        ok: BOOLEAN = m IS NOT NULL
+            AND isValidDate(parseInteger(m.group(1)), parseInteger(m.group(2)), parseInteger(m.group(3)))
+            AND isValidTime(parseInteger(m.group(4)), parseInteger(m.group(5)), m.group(6) IS NULL ? 0 : parseInteger(m.group(6)))
+            AND (m.group(7) IS NULL OR isValidTime(parseInteger(m.group(7)), parseInteger(m.group(8)), 0))
+        IF NOT ok
+            THROW ValidationException(n.getLine(), "INVALID_VALUE", n.getName() + ": Invalid timestamp (" + value + ")")
+        END IF
+    END PROCEDURE
 END CLASS
 
 # UUID: standard UUID format (8-4-4-4-12, hexadecimal)
@@ -333,8 +385,20 @@ END CLASS
 # Types with specific validation (not a simple inline regex)
 # -------------------------------------------------------------------
 
-# URL: URI with mandatory scheme and host. INLINE value form only.
+# URL: absolute URL with mandatory scheme and host (§9.4, grammar of 2026-08-21). INLINE
+# value form only. The grammar is the specification's own, NOT the platform URL parser
+# (they disagree on the edges: IDN, `localhost`, odd ports, schemes without `//`), so that
+# every port accepts exactly the same values:
+#
+#   scheme "://" [ userinfo "@" ] host [ ":" port ] [ "/" path ] [ "?" query ] [ "#" fragment ]
+#
+# scheme = letter then letters/digits/+/-/. (case-insensitive); userinfo = no blank / ? # @;
+# host = "[" hex/:/. "]" (IPv6) or no blank / ? # @ : [ ]; port = digits; path/query/fragment
+# = no blank (and no ? # in the path, no # in the query). Blank means U+0020 and U+0009 (§4
+# of STXT-SPEC). Non-ASCII is accepted as it is. Nothing is resolved or normalised.
 CLASS URL IMPLEMENTS Type
+    FIELD P_URL: REGEX = "^[A-Za-z][A-Za-z0-9+.-]*://(?:[^ \t/?#@]+@)?(?:\[[0-9A-Fa-f:.]+\]|[^ \t/?#@:\[\]]+)(?::[0-9]+)?(?:/[^ \t?#]*)?(?:\?[^ \t#]*)?(?:#[^ \t]*)?$"
+
     FUNCTION getName(): STRING
         RETURN "URL"
     END FUNCTION
@@ -346,8 +410,7 @@ CLASS URL IMPLEMENTS Type
         END IF
 
         url: STRING = n.getText()
-        uri = parseURI(url)
-        IF uri IS NULL OR uri.getScheme() IS NULL OR uri.getHost() IS NULL
+        IF NOT P_URL.matches(url)
             THROW ValidationException(n.getLine(), "INVALID_VALUE", "Invalid URL: " + url)
         END IF
     END PROCEDURE
