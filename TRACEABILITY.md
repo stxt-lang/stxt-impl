@@ -68,7 +68,9 @@ the pseudocode's normative scope.
 | `discovery/discovery_environment.txt`, `discovery_file_system.txt` | STXT-DISCOVERY-SPEC §§4, 6 | `src/discovery/DiscoveryEnvironment.ts`, `DiscoveryFileSystem.ts` | `dev.stxt.discovery.DiscoveryEnvironment` (+ `SystemDiscoveryEnvironment`), `DiscoveryFileSystem` (+ `NioDiscoveryFileSystem`, since 0.11.0) |
 | `discovery/discovery_error.txt`, `discovery_result.txt`, `discovery_resolver.txt` | STXT-DISCOVERY-SPEC §§3–10 | `src/discovery/DiscoveryError.ts`, `DiscoveryResult.ts`, `DiscoveryResolver.ts` | `dev.stxt.discovery.DiscoveryError`, `DiscoveryResult` (+ `DiscoveryDefinition`, `DiscoveryLevel`), `DiscoveryResolver` |
 
-`src/runtime/UnifiedSchemaProvider.ts` in TypeScript and the Java `runtime.STXT` /
+`src/runtime/UnifiedSchemaProvider.ts` and `src/runtime/Formatter.ts` (the comment-preserving
+formatter behind `stxt format`, the VS Code extension and the playground, since
+`@stxt-lang/core` 0.11.1) in TypeScript and the Java `runtime.STXT` /
 resource-loader facades are consumer conveniences.
 They may be documented by ports but are not normative pseudocode modules. (The
 `ConditionalValidator` wrapper the ports used to ship was removed in 0.11.0 (the 1.0 preview): since 0.8.0 the
