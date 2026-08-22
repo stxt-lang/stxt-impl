@@ -6,14 +6,14 @@ This file is the maintenance map for the normative implementation blueprint.
 The authority chain is:
 
 ```text
-STXT specifications (stxt-web) -> this pseudocode (stxt-impl) -> language ports
+STXT specifications (stxt-lang) -> this pseudocode (stxt-impl) -> language ports
 ```
 
 The specifications decide the language. This repository turns their normative rules
 into platform-neutral algorithms and data contracts. A port must be corrected when it
 disagrees with either one; this document does not create independent language rules.
 
-The canonical specifications are `../stxt-web/es/stxt-*-ref.stxt`. At the time of this
+The canonical specifications are `../stxt-lang/es/stxt-*-ref.stxt`. At the time of this
 map (2026-08-16, updated 2026-08-21), STXT-SPEC has `Last modif: 2026-08-21` (comment indentation
 validated like a node's, §9, the 0.9.0 change; *blank* defined as
 U+0020/U+0009 only, §4; comments close `>>` blocks, §6.1/§9.1; combining marks `Mn`/`Mc` allowed
@@ -136,7 +136,7 @@ collect resolution errors without throwing away unrelated definitions.
 | Caches, filesystem/environment adapters and public facades | Intentionally left to each port. |
 | API parity audit (0.11.0, the 1.0 preview, 2026-08-21) | The public surface of the three ports was compared name by name before 1.0. TypeScript now exports everything a consumer needs (`Validator`, `RuntimeException`, the in-memory and meta providers, `TypeRegistry`/`Type`, `TEMPLATE_NAMESPACE`) and `Schema.getDescription()`; Java gained `Schema.getDescription()` and `Constants.SEP_TEXT_NODE`; Python exports `Type`/`TypeRegistry` from the root. The structural gaps of Java were closed the same day (0.11.0): `Observer.onComment`/`onTextLine`, public `LineIndent`/`parseLine`, the three in-memory providers, an injectable `DiscoveryFileSystem`, `TreeJson.toCanonicalTree` (as `java.util` maps and lists) and `NodeDefinition(name, type, line, description)`. Known, non-semantic differences that remain are naming: `Line` (ts) = `LineIndent` (java/py), `getChildrenByName` (ts/py) = Java overload `getChildren(name)`, `toSTXTDocs` = Java overload, `transformTemplateNodeToSchema` = `TemplateParser.transformNodeToSchema`, `RuntimeException` (ts/py) = `STXTException` (java), `IndentStyle` nested in Java. None of these changes what a document parses to or which error codes it yields. |
 | Error codes | The condition→code tables of STXT-SPEC §11.1, STXT-SCHEMA-SPEC §13.1 and STXT-TEMPLATE-SPEC §14.1 are normative since 2026-08-21 (the 0.9.1 ports); frozen from 1.0. The codes were renamed that day per the table at the end of `exceptions/exceptions.txt` (its "was" notes keep the old names): among others `INDENTATION_MIXED`, `BLOCK_VALUE_NOT_ALLOWED`, `TOO_FEW_CHILDREN`/`TOO_MANY_CHILDREN` (one code split in two by condition), `SCHEMA_ROOT_NOT_VALID`/`SCHEMA_MULTIPLE_ROOTS`/`SCHEMA_NAMESPACE_EMPTY`/`SCHEMA_NODE_NOT_INLINE` (one code split in four by condition), their `TEMPLATE_*` parallels, `VALUES_DUPLICATED` (now a `ValidationException` at the line of the second `Values`, no longer a `RuntimeException`) and a single `UNEXPECTED_ERROR` wrapper. Ports MUST use the exact strings; messages stay free text. |
-| Python port | `../stxt-python` (`stxt` on PyPI), 2026-08-16: the five specifications and the 0.7.0 node model, module by module from this pseudocode. Port-level choices: `snake_case` names, positional overloads through `*args` plus keywords, read-only tuples for children and text lines, a closed hierarchy enforced in `Node.__init_subclass__`, all value types in one module, synchronous discovery with `OsDiscoveryFileSystem` / `SystemDiscoveryEnvironment` host adapters. Its `pytest` suite runs the shared `stxt-web` corpus (mandatory, fails at collection when absent) and covers every row of the regression table below. |
+| Python port | `../stxt-python` (`stxt` on PyPI), 2026-08-16: the five specifications and the 0.7.0 node model, module by module from this pseudocode. Port-level choices: `snake_case` names, positional overloads through `*args` plus keywords, read-only tuples for children and text lines, a closed hierarchy enforced in `Node.__init_subclass__`, all value types in one module, synchronous discovery with `OsDiscoveryFileSystem` / `SystemDiscoveryEnvironment` host adapters. Its `pytest` suite runs the shared `stxt-lang` corpus (mandatory, fails at collection when absent) and covers every row of the regression table below. |
 
 ## Audit record — 2026-08-09
 
@@ -175,7 +175,7 @@ use of the Java API. It adds the last three rows of the regression table.
 
 These are behaviour-level cases, not a new fixture format. Every conforming port
 should cover them through its normal test framework and, where appropriate, through
-the shared `stxt-web` corpus. (Python: `test_core.py`, `test_providers.py`,
+the shared `stxt-lang` corpus. (Python: `test_core.py`, `test_providers.py`,
 `test_template.py`, `test_discovery.py` and `test_node.py`.)
 
 | Area | Input / setup | Expected result |
