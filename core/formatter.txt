@@ -1,0 +1,153 @@
+# Formatter: reformats an STXT document LINE BY LINE, OVER THE ORIGINAL TEXT, so that nothing
+# the parse tree does not hold — comments, blank lines, the exact content of text blocks — is
+# lost. This is STXT-TREE-SPEC §12; the canonical text form of a tree, which drops all that,
+# is node_writer.txt (§11).
+#
+# The rules (§12.1), the same for every tool of the ecosystem:
+#   * A line that OPENS A NODE is rendered in canonical form: the indentation of its level in
+#     the requested style, the logical name, the namespace only where the SOURCE wrote it on
+#     that line (a child repeating its parent's namespace is redundant but legal; dropping it
+#     would be an edit, not a reformat), ": value" with exactly one space — or a bare ":" when
+#     there is no value — or " >>" for a block.
+#   * A TEXT LINE OF A BLOCK gets the indentation of the block (its level plus one) in the
+#     requested style, followed by its content; the indentation it had beyond the block's is
+#     content (STXT-SPEC §10.2) and is kept exactly. A blank line of the block is "" in the
+#     content (§10.3) and is written with the indentation of the block too.
+#   * Every OTHER LINE — a comment, a blank line outside a block, or a line the tree does not
+#     describe because of a syntax error — is kept as written, except that its trailing blanks
+#     are removed and the whole indentation units at its start (a tab or TAB_SPACES spaces,
+#     in either style) are converted one for one to the requested style; whatever follows the
+#     last whole unit, a remainder included, is kept as it is.
+#   * The line ending is CRLF if the source holds any CRLF, LF otherwise; a final line break
+#     is kept only if the source had one; an initial BOM is removed.
+# The result is idempotent, round-trips between the two styles and produces the same canonical
+# tree as the source. Formatting never repairs a document with errors, nor hides them: the
+# errors are returned next to the text, and whether to reformat at all is the caller's call.
+# The document is parsed with no schema: formatting has nothing to do with validation.
+#
+# Location note: the ports host this class next to NodeWriter ("runtime").
+
+CLASS FormatResult
+    FIELD text: STRING                  # the reformatted document
+    FIELD errors: ParseException[]      # syntax errors found, in line order; empty if none
+END CLASS
+
+CLASS Formatter
+
+    FUNCTION format(text: STRING, style: STRING): FormatResult
+        IF text.startsWith(BOM)
+            text = text.substring(1)
+        END IF
+
+        source_lines: SourceLines = SourceLines()
+        parser: Parser = Parser()
+        parser.registerObserver(source_lines)
+        result: ParseResult = parser.parseResult(text)
+
+        eol: STRING = "\n"
+        IF text.contains("\r\n")
+            eol = "\r\n"
+        END IF
+
+        lines: STRING[] = split(text, "\r\n" | "\n")    # keeps a last empty element if text ends in a break
+        out: STRING[] = []
+        FOREACH line, index IN lines
+            out.push(formatLine(line, index + 1, style, source_lines))
+        END FOREACH
+        RETURN FormatResult(join(out, eol), result.getErrors())
+    END FUNCTION
+
+    FUNCTION formatLine(line: STRING, line_number: INTEGER, style: STRING, source_lines: SourceLines): STRING
+        node: Node = source_lines.nodeAt(line_number)
+        IF node IS NOT NULL
+            RETURN renderNode(node, line, style)
+        END IF
+        text: TextLine = source_lines.textAt(line_number)
+        IF text IS NOT NULL
+            RETURN indent(text.node.getLevel() + 1, style) + text.line_indent.line_without_indent
+        END IF
+        RETURN convertUnits(rightTrim(line), style)
+    END FUNCTION
+
+    # The line that opens a node, in canonical form. The source line is used only to tell
+    # whether it spelled the namespace out (a "(" before the ":" of an inline node, or
+    # anywhere in the line of a block node).
+    FUNCTION renderNode(node: Node, line: STRING, style: STRING): STRING
+        head: STRING = line
+        IF node IS InlineNode
+            head = line.substring(0, line.indexOf(":"))
+        END IF
+        name: STRING = node.getName()
+        IF head.contains("(")
+            name = name + " (" + node.getNamespace() + ")"
+        END IF
+        prefix: STRING = indent(node.getLevel(), style)
+        IF node IS TextNode
+            RETURN prefix + name + " >>"
+        END IF
+        value: STRING = node.getValue()
+        IF isEmpty(value)
+            RETURN prefix + name + ":"
+        END IF
+        RETURN prefix + name + ": " + value
+    END FUNCTION
+
+    # Converts the whole indentation units at the start of the line and keeps the rest.
+    FUNCTION convertUnits(line: STRING, style: STRING): STRING
+        consumed: INTEGER = 0
+        units: INTEGER = 0
+        unit: INTEGER = unitAt(line, consumed)
+        WHILE unit > 0
+            consumed = consumed + unit
+            units = units + 1
+            unit = unitAt(line, consumed)
+        END WHILE
+        IF units == 0
+            RETURN line
+        END IF
+        RETURN indent(units, style) + line.substring(consumed)
+    END FUNCTION
+
+    # Length of the whole indentation unit — a tab or TAB_SPACES spaces — at position, or 0.
+    FUNCTION unitAt(line: STRING, position: INTEGER): INTEGER
+        IF line.startsWith("\t", position)
+            RETURN 1
+        END IF
+        IF line.startsWith(repeat(" ", TAB_SPACES), position)
+            RETURN TAB_SPACES
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION indent(level: INTEGER, style: STRING): STRING
+        IF style == INDENT_SPACES_4
+            RETURN repeat("    ", level)
+        END IF
+        RETURN repeat("\t", level)
+    END FUNCTION
+
+END CLASS
+
+# The parse of a document seen as source lines: which line opened which node, and which line
+# is a text line of which block. An Observer (processors/observer.txt).
+CLASS SourceLines IMPLEMENTS Observer
+    FIELD node_by_line: MAP<INTEGER, Node>
+    FIELD text_by_line: MAP<INTEGER, TextLine>      # TextLine = (node: TextNode, line_indent: LineIndent)
+
+    PROCEDURE onCreate(node: Node, line_string: STRING)
+        node_by_line[node.getLine()] = node
+    END PROCEDURE
+
+    PROCEDURE onFinish(node: Node)
+    END PROCEDURE
+
+    PROCEDURE onComment(line_number: INTEGER, line_string: STRING)
+    END PROCEDURE
+
+    PROCEDURE onTextLine(node: TextNode, line_number: INTEGER, line_string: STRING, line_indent: LineIndent)
+        text_by_line[line_number] = TextLine(node, line_indent)
+    END PROCEDURE
+
+    FUNCTION nodeAt(line_number: INTEGER): Node      # NULL if the line opened no node
+    FUNCTION textAt(line_number: INTEGER): TextLine  # NULL if the line is not text of a block
+END CLASS

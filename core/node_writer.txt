@@ -1,10 +1,14 @@
 # NodeWriter: serializes a Node (or a list of root nodes) back to STXT text.
 #
-# ROUND-TRIP GUARANTEE: writing a parsed tree and re-parsing the output MUST produce
-# the same logical tree (same names, namespaces, values, text lines and children).
-# Note the source text is not preserved verbatim: comments are gone, whitespace is
-# normalized and the namespace is written where the node DECLARES it (getDeclaredNamespace()),
-# exactly as in the source; inherited namespaces are implicit.
+# This is the CANONICAL TEXT FORM of STXT-TREE-SPEC §11: a function of the logical tree and
+# of the indentation style, so two implementations writing the same tree produce the same
+# text, byte for byte. ROUND-TRIP GUARANTEE: re-parsing the output MUST produce the same
+# logical tree (same names, namespaces, values, text lines and children).
+# The source text is not preserved verbatim: comments are gone, whitespace is normalized,
+# and the namespace is written only where it has to be declared (§11.1 rule 3): on a root
+# when it is not empty, on a child when its effective namespace differs from the parent's.
+# Where the SOURCE declared it is not part of the tree (STXT-TREE-SPEC §6) and is ignored;
+# a child repeating its parent's namespace comes out without it.
 #
 # Location note: stxt-js and stxt-java host this class in their "runtime" package.
 
@@ -17,7 +21,7 @@ CLASS NodeWriter
     # Serializes a node (along with its children) to STXT text.
     FUNCTION toSTXT(node: Node, style: STRING): STRING
         out: STRING[] = []
-        writeNode(out, node, 0, style)
+        writeNode(out, node, 0, style, "")
         RETURN join(out, "")
     END FUNCTION
 
@@ -31,24 +35,23 @@ CLASS NodeWriter
                 out.push("\n")
             END IF
             first = false
-            writeNode(out, doc, 0, style)
+            writeNode(out, doc, 0, style, "")
         END FOREACH
 
         RETURN join(out, "")
     END FUNCTION
 
-    # Writes one node and, recursively, its children.
-    # The namespace is written where the node declares it; inherited ones are implicit,
-    # exactly as in the source (the effective namespace is the same either way, so the
-    # round trip holds).
-    PROCEDURE writeNode(out: STRING[], n: Node, depth: INTEGER, style: STRING)
+    # Writes one node and, recursively, its children. parent_ns is the effective namespace
+    # of the parent, "" for a root (a subtree written on its own is written as a root).
+    PROCEDURE writeNode(out: STRING[], n: Node, depth: INTEGER, style: STRING, parent_ns: STRING)
 
         writeIndent(out, depth, style)
 
-        ns: STRING = n.getDeclaredNamespace()
+        # The namespace is declared only where it changes (STXT-TREE-SPEC §11.1 rule 3)
+        ns: STRING = n.getNamespace()
 
         out.push(n.getName())
-        IF NOT isEmpty(ns)
+        IF ns != parent_ns
             out.push(" (" + ns + ")")
         END IF
 
@@ -70,7 +73,7 @@ CLASS NodeWriter
             out.push("\n")
 
             FOREACH child IN n.getChildren()
-                writeNode(out, child, depth + 1, style)
+                writeNode(out, child, depth + 1, style, ns)
             END FOREACH
         END IF
 
