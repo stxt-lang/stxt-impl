@@ -19,7 +19,9 @@ line is a level jump, reference level -1 with no open node, §8.3; comment inden
 validated like a node's, §9, the 0.9.0 change; *blank* defined as
 U+0020/U+0009 only, §4; comments close `>>` blocks, §6.1/§9.1; combining marks `Mn`/`Mc` allowed
 in names, §4.2), STXT-TREE-SPEC has
-`Last modif: 2026-08-09`; STXT-SCHEMA-SPEC has `Last modif: 2026-08-21` (the grammar of every value type of §9.3–9.5 is now
+`Last modif: 2026-08-23` (still `Version: 1.0` by decision, until the portal is published; §11 canonical text form and §12 reformatting, which make
+`node_writer.txt` and the JS `Formatter` normative; the ports are not yet aligned with §11.1 rule 3,
+which writes the namespace only where it changes from the parent's); STXT-SCHEMA-SPEC has `Last modif: 2026-08-21` (the grammar of every value type of §9.3–9.5 is now
 normative — `NUMBER` is explicitly not the JSON number, `DATE`/`TIME`/`TIMESTAMP` check calendar and
 clock ranges with the `isValidDate`/`isValidTime` helpers of `schema/types.txt`, `TIMESTAMP` takes a
 fraction of one or more digits, `BASE64` is the standard alphabet with optional padding; and the
@@ -57,7 +59,7 @@ the pseudocode's normative scope.
 | `core/name_namespace.txt` | STXT-SPEC §§4.1, 7 | `src/core/NameNamespace.ts`, `NameNamespaceParser.ts` | `dev.stxt.NameNamespace`, `NameNamespaceParser` |
 | `core/node.txt` (`Node`, `InlineNode`, `TextNode`) | STXT-SPEC §§4–7, 8.4; STXT-TREE-SPEC (two forms) | `src/core/Node.ts`, `InlineNode.ts`, `TextNode.ts`, `NodeCreator.ts` | `dev.stxt.Node`, `InlineNode`, `TextNode` |
 | `core/parse_result.txt`, `parser.txt` | STXT-SPEC §§3–12 | `src/core/ParseResult.ts`, `Parser.ts` | `dev.stxt.ParseResult`, `Parser` |
-| `core/node_writer.txt` | STXT-SPEC §§4–10; round-trip property | `src/runtime/NodeWriter.ts` | `dev.stxt.runtime.NodeWriter` |
+| `core/node_writer.txt` | STXT-TREE-SPEC §11 (canonical text form, normative since 2026-08-23); round-trip property | `src/runtime/NodeWriter.ts` | `dev.stxt.runtime.NodeWriter` |
 | `core/tree_json.txt` | STXT-TREE-SPEC §§3–9 | `src/runtime/TreeJson.ts` | `dev.stxt.runtime.TreeJson` |
 | `exceptions/exceptions.txt` | Stable error-code contract | `src/exceptions/*.ts` | `dev.stxt.exceptions.*` |
 | `processors/observer.txt`, `validator.txt` | STXT-SPEC §§12, 17.3; schema/template §3 | `src/processors/*.ts` | `dev.stxt.processors.*` |
