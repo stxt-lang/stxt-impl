@@ -88,8 +88,10 @@ CLASS Parser
                 last_node = stack.last()
             END IF
 
-            # One open node per level: the top of the stack is at level size - 1
-            last_level: INTEGER = 0
+            # One open node per level: the top of the stack is at level size - 1. With no
+            # open node the reference level is -1 (STXT-SPEC §8.3): the first line of the
+            # document, and the first after every node has been closed, must be at level 0.
+            last_level: INTEGER = -1
             IF last_node IS NOT NULL
                 last_level = stack.size() - 1
             END IF

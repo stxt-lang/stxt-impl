@@ -123,7 +123,8 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
     END IF
 
     # Validate indentation level progression (no jumps, §11.3). Comments included (§9):
-    # last_level is the level of the last NODE, a comment never becomes the reference.
+    # last_level is the level of the last NODE, a comment never becomes the reference, and
+    # it is -1 when no node is open, so an indented first line is a jump (§8.3).
     IF level > (last_level + 1)
         THROW ParseException(num_line, "INDENTATION_LEVEL_NOT_VALID", "Level of indent incorrect: " + level)
     END IF
