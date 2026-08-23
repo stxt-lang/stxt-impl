@@ -21,7 +21,9 @@ END FUNCTION
 # true if str is valid Base64 per STXT-SCHEMA-SPEC §9.5, that is, all of:
 #   1. non-empty;
 #   2. only the standard alphabet of RFC 4648 §4 ([A-Za-z0-9+/]; NOT the URL-safe '-' '_');
-#   3. optional trailing padding: at most two '=' and only at the end;
+#   3. optional trailing padding: if present, exactly the one or two '=' that complete the
+#      last quartet (so 'aGVsbG8=' and 'aGVsbG8' are valid, 'aGVsbG8==' and 'aGVsbG8x=' are
+#      not), and only at the end;
 #   4. no leftover bits: without the padding, length % 4 != 1, and the last character
 #      encodes zero bits beyond the byte boundary (one of [AQgw] when length % 4 == 2,
 #      one of [AEIMQUYcgkosw048] when length % 4 == 3); equivalently, decoding and
