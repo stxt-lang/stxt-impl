@@ -51,29 +51,29 @@ parser hooks, schemas, templates, canonical tree JSON and discovery. Convenience
 facades, concrete host adapters, caches and resource loaders are deliberately outside
 the pseudocode's normative scope.
 
-| Pseudocode area | Normative source | TypeScript reference | Java port |
-|---|---|---|---|
-| `core/constants.txt`, `platform.txt` | STXT-SPEC §§3, 5, 6, 8, 9 | `src/core/Constants.ts` | `dev.stxt.Constants` |
-| `core/string_utils.txt`, `validations.txt` | STXT-SPEC §§4, 7, 10 | `src/core/StringUtils.ts`, `NamespaceValidator.ts` | `dev.stxt.utils.StringUtils`, `dev.stxt.NamespaceValidator` |
-| `core/line_indent.txt` | STXT-SPEC §§8–10 | `src/core/Line.ts`, `LineParser.ts` | `dev.stxt.LineIndent`, `LineIndentParser` |
-| `core/name_namespace.txt` | STXT-SPEC §§4.1, 7 | `src/core/NameNamespace.ts`, `NameNamespaceParser.ts` | `dev.stxt.NameNamespace`, `NameNamespaceParser` |
-| `core/node.txt` (`Node`, `InlineNode`, `TextNode`) | STXT-SPEC §§4–7, 8.4; STXT-TREE-SPEC (two forms) | `src/core/Node.ts`, `InlineNode.ts`, `TextNode.ts`, `NodeCreator.ts` | `dev.stxt.Node`, `InlineNode`, `TextNode` |
-| `core/parse_result.txt`, `parser.txt` | STXT-SPEC §§3–12 | `src/core/ParseResult.ts`, `Parser.ts` | `dev.stxt.ParseResult`, `Parser` |
-| `core/node_writer.txt` | STXT-TREE-SPEC §11 (canonical text form, normative since 2026-08-23); round-trip property | `src/runtime/NodeWriter.ts` | `dev.stxt.runtime.NodeWriter` |
-| `core/formatter.txt` | STXT-TREE-SPEC §12 (reformatting, normative since 2026-08-23; until then the JS-only `Formatter` of 0.11.1) | `src/runtime/Formatter.ts` | `dev.stxt.runtime.Formatter`, `FormatResult` |
-| `core/tree_json.txt` | STXT-TREE-SPEC §§3–9 | `src/runtime/TreeJson.ts` | `dev.stxt.runtime.TreeJson` |
-| `exceptions/exceptions.txt` | Stable error-code contract | `src/exceptions/*.ts` | `dev.stxt.exceptions.*` |
-| `processors/observer.txt`, `validator.txt` | STXT-SPEC §§12, 17.3; schema/template §3 | `src/processors/*.ts` | `dev.stxt.processors.*` |
-| `schema/child_definition.txt`, `node_definition.txt`, `schema.txt` | STXT-SCHEMA-SPEC §§4, 6–10 | `src/schema/ChildDefinition.ts`, `NodeDefinition.ts`, `Schema.ts` | `dev.stxt.schema.ChildDefinition`, `NodeDefinition`, `Schema` |
-| `schema/schema_parser.txt`, `schema_provider.txt` | STXT-SCHEMA-SPEC §§4–8, 13, 15 | `src/schema/SchemaParser.ts`, `SchemaProvider*.ts` | `dev.stxt.schema.SchemaParser`, `SchemaProvider*` |
-| `schema/schema_validator.txt`, `types.txt` | STXT-SCHEMA-SPEC §§6, 9–14 | `src/schema/SchemaValidator.ts`, `Type*.ts`, `type/*` | `dev.stxt.schema.SchemaValidator`, `Type*.java`, `type/*` |
-| `template/child_line.txt`, `child_line_parser.txt` | STXT-TEMPLATE-SPEC §§6.2, 7, 9 | `src/template/ChildLine.ts`, `ChildLineParser.ts` | `dev.stxt.template.ChildLine`, `ChildLineParser` |
-| `template/template_parser.txt`, `template_schema_provider.txt` | STXT-TEMPLATE-SPEC §§4–18 | `src/template/TemplateParser.ts`, `*TemplateSchemaProvider.ts` | `dev.stxt.template.TemplateParser`, `*TemplateSchemaProvider` |
-| `discovery/discovery_environment.txt`, `discovery_file_system.txt` | STXT-DISCOVERY-SPEC §§4, 6 | `src/discovery/DiscoveryEnvironment.ts`, `DiscoveryFileSystem.ts` | `dev.stxt.discovery.DiscoveryEnvironment` (+ `SystemDiscoveryEnvironment`), `DiscoveryFileSystem` (+ `NioDiscoveryFileSystem`, since 0.11.0) |
-| `discovery/discovery_error.txt`, `discovery_result.txt`, `discovery_resolver.txt` | STXT-DISCOVERY-SPEC §§3–10 | `src/discovery/DiscoveryError.ts`, `DiscoveryResult.ts`, `DiscoveryResolver.ts` | `dev.stxt.discovery.DiscoveryError`, `DiscoveryResult` (+ `DiscoveryDefinition`, `DiscoveryLevel`), `DiscoveryResolver` |
+| Pseudocode area | Normative source | TypeScript reference | Java port | Python port |
+|---|---|---|---|---|
+| `core/constants.txt`, `platform.txt` | STXT-SPEC §§3, 5, 6, 8, 9 | `src/core/Constants.ts` | `dev.stxt.Constants` | `stxt/core/constants.py`, `platform.py` |
+| `core/string_utils.txt`, `validations.txt` | STXT-SPEC §§4, 7, 10 | `src/core/StringUtils.ts`, `NamespaceValidator.ts` | `dev.stxt.utils.StringUtils`, `dev.stxt.NamespaceValidator` | `stxt/core/string_utils.py`, `validations.py` |
+| `core/line_indent.txt` | STXT-SPEC §§8–10 | `src/core/Line.ts`, `LineParser.ts` | `dev.stxt.LineIndent`, `LineIndentParser` | `stxt/core/line_indent.py` |
+| `core/name_namespace.txt` | STXT-SPEC §§4.1, 7 | `src/core/NameNamespace.ts`, `NameNamespaceParser.ts` | `dev.stxt.NameNamespace`, `NameNamespaceParser` | `stxt/core/name_namespace.py` |
+| `core/node.txt` (`Node`, `InlineNode`, `TextNode`) | STXT-SPEC §§4–7, 8.4; STXT-TREE-SPEC (two forms) | `src/core/Node.ts`, `InlineNode.ts`, `TextNode.ts`, `NodeCreator.ts` | `dev.stxt.Node`, `InlineNode`, `TextNode` | `stxt/core/node.py` (`Node`, `InlineNode`, `TextNode`, `NO_LINE`) |
+| `core/parse_result.txt`, `parser.txt` | STXT-SPEC §§3–12 | `src/core/ParseResult.ts`, `Parser.ts` | `dev.stxt.ParseResult`, `Parser` | `stxt/core/parse_result.py`, `parser.py` |
+| `core/node_writer.txt` | STXT-TREE-SPEC §11 (canonical text form, normative since 2026-08-23); round-trip property | `src/runtime/NodeWriter.ts` | `dev.stxt.runtime.NodeWriter` | `stxt/runtime/node_writer.py` |
+| `core/formatter.txt` | STXT-TREE-SPEC §12 (reformatting, normative since 2026-08-23; until then the JS-only `Formatter` of 0.11.1) | `src/runtime/Formatter.ts` | `dev.stxt.runtime.Formatter`, `FormatResult` | `stxt/runtime/formatter.py` (`Formatter`, `FormatResult`) |
+| `core/tree_json.txt` | STXT-TREE-SPEC §§3–9 | `src/runtime/TreeJson.ts` | `dev.stxt.runtime.TreeJson` | `stxt/runtime/tree_json.py` |
+| `exceptions/exceptions.txt` | Stable error-code contract | `src/exceptions/*.ts` | `dev.stxt.exceptions.*` | `stxt/exceptions/__init__.py` |
+| `processors/observer.txt`, `validator.txt` | STXT-SPEC §§12, 17.3; schema/template §3 | `src/processors/*.ts` | `dev.stxt.processors.*` | `stxt/processors/observer.py`, `validator.py` |
+| `schema/child_definition.txt`, `node_definition.txt`, `schema.txt` | STXT-SCHEMA-SPEC §§4, 6–10 | `src/schema/ChildDefinition.ts`, `NodeDefinition.ts`, `Schema.ts` | `dev.stxt.schema.ChildDefinition`, `NodeDefinition`, `Schema` | `stxt/schema/child_definition.py`, `node_definition.py`, `schema.py` |
+| `schema/schema_parser.txt`, `schema_provider.txt` | STXT-SCHEMA-SPEC §§4–8, 13, 15 | `src/schema/SchemaParser.ts`, `SchemaProvider*.ts` | `dev.stxt.schema.SchemaParser`, `SchemaProvider*` | `stxt/schema/schema_parser.py`, `schema_provider.py` |
+| `schema/schema_validator.txt`, `types.txt` | STXT-SCHEMA-SPEC §§6, 9–14 | `src/schema/SchemaValidator.ts`, `Type*.ts`, `type/*` | `dev.stxt.schema.SchemaValidator`, `Type*.java`, `type/*` | `stxt/schema/schema_validator.py`, `types.py` (all types in one module) |
+| `template/child_line.txt`, `child_line_parser.txt` | STXT-TEMPLATE-SPEC §§6.2, 7, 9 | `src/template/ChildLine.ts`, `ChildLineParser.ts` | `dev.stxt.template.ChildLine`, `ChildLineParser` | `stxt/template/child_line.py`, `child_line_parser.py` |
+| `template/template_parser.txt`, `template_schema_provider.txt` | STXT-TEMPLATE-SPEC §§4–18 | `src/template/TemplateParser.ts`, `*TemplateSchemaProvider.ts` | `dev.stxt.template.TemplateParser`, `*TemplateSchemaProvider` | `stxt/template/template_parser.py`, `template_schema_provider.py` |
+| `discovery/discovery_environment.txt`, `discovery_file_system.txt` | STXT-DISCOVERY-SPEC §§4, 6 | `src/discovery/DiscoveryEnvironment.ts`, `DiscoveryFileSystem.ts` | `dev.stxt.discovery.DiscoveryEnvironment` (+ `SystemDiscoveryEnvironment`), `DiscoveryFileSystem` (+ `NioDiscoveryFileSystem`, since 0.11.0) | `stxt/discovery/discovery_environment.py` (+ `SystemDiscoveryEnvironment`), `discovery_file_system.py` (+ `OsDiscoveryFileSystem`) |
+| `discovery/discovery_error.txt`, `discovery_result.txt`, `discovery_resolver.txt` | STXT-DISCOVERY-SPEC §§3–10 | `src/discovery/DiscoveryError.ts`, `DiscoveryResult.ts`, `DiscoveryResolver.ts` | `dev.stxt.discovery.DiscoveryError`, `DiscoveryResult` (+ `DiscoveryDefinition`, `DiscoveryLevel`), `DiscoveryResolver` | `stxt/discovery/discovery_error.py`, `discovery_result.py`, `discovery_resolver.py` (+ `stxt.discovery.resolve`) |
 
-`src/runtime/UnifiedSchemaProvider.ts` in TypeScript and the Java `runtime.STXT` /
-resource-loader facades are consumer conveniences.
+`src/runtime/UnifiedSchemaProvider.ts` in TypeScript, `stxt/runtime/unified_schema_provider.py`
+in Python and the Java `runtime.STXT` / resource-loader facades are consumer conveniences.
 They may be documented by ports but are not normative pseudocode modules. (The
 `ConditionalValidator` wrapper the ports used to ship was removed in 0.11.0 (the 1.0 preview): since 0.8.0 the
 `SchemaValidator` itself skips the empty namespace, STXT-SCHEMA-SPEC §5.)
