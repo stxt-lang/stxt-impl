@@ -10,6 +10,13 @@ SEP_TEXT_NODE		= ">>"
 DEFAULT_ENCODING	= "UTF-8"
 EMPTY_NAMESPACE		= ""
 
+# Parser limits (STXT-SPEC §11.2). Defaults of a conforming parser; every port MUST
+# let the program configure them, and -1 disables the corresponding limit. Lengths
+# are measured in the platform's natural string units (code points or UTF-16 units).
+DEFAULT_MAX_NESTING     = 100        # max open levels (level 0 is the first)
+DEFAULT_MAX_LINE_LENGTH = 10000      # max length of one input line, indentation included
+DEFAULT_MAX_INPUT_SIZE  = 10000000   # max total input consumed
+
 # Version of the STXT specifications (STXT-SPEC, STXT-TREE-SPEC, STXT-SCHEMA-SPEC,
 # STXT-TEMPLATE-SPEC, STXT-DISCOVERY-SPEC) this implementation conforms to. It is NOT the
 # version of the port's package: two ports with different package versions read the same

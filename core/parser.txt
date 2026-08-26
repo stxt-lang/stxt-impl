@@ -1,31 +1,63 @@
 # Parser: line-by-line STXT parsing engine. It knows nothing about schemas: semantic
-# validation is plugged in through registerValidator() and observation through
-# registerObserver() (see processors/).
+# validation is plugged in through registerValidator(), process observation through
+# registerObserver() and result observation through registerStreamObserver()
+# (see processors/).
 #
 # Algorithm: a stack of open nodes, one per indentation level (the size of the stack is
 # the level of the next line). When a line at level N arrives, every node deeper than N
 # is closed (validated and notified to the observers), and the new node is created,
-# ATTACHED to its parent (the top of the stack; or added to the documents if it is a root)
+# ATTACHED to its parent (the top of the stack; or kept as a root if the stack is empty)
 # and pushed onto the stack, still open. Attaching at creation links both ends of the
 # parent link (core/node.txt), so the node already knows its parent — and so its effective
 # namespace and its level — when the observers see it in onCreate(). A document may hold
 # multiple root nodes, which close under concatenation (STXT-SPEC §8.5 — logs/streaming
 # friendly).
 #
-# Two modes:
-#   * parse():       traditional fail-fast, throws the first error found.
-#   * parseResult(): multi-error, collects every error (syntax and validation) in a
-#                    ParseResult without bailing out on the first one.
+# Three entry points over the same traversal:
+#   * parse():        traditional fail-fast, throws the first error found.
+#   * parseResult():  multi-error, collects every error (syntax and validation) in a
+#                     ParseResult without bailing out on the first one.
+#   * parseStream():  input from a line iterator, and NOTHING retained: no nodes, no
+#                     errors. Results reach the program only through the registered
+#                     StreamObservers (each completed root by onRootNode(), each error
+#                     by onError()), so memory holds one root tree at a time. This is
+#                     the entry point for files that do not fit in memory.
+#
+# Which callbacks fire never depends on the entry point, only on what is registered:
+# Observers, Validators and StreamObservers all fire in the three modes. In fail-fast
+# parse() a StreamObserver still sees every error through onError() before the first
+# one is thrown, because parse() reuses the parseResult() traversal.
+#
+# Parser limits (STXT-SPEC §11.2): the parser aborts on inputs that exceed the
+# nesting depth, line length or input size limits, set to the DEFAULT_MAX_* values of
+# core/constants.txt unless configured; -1 disables one. A limit error is a
+# LimitException (exceptions/exceptions.txt) and ABORTS the parse in every mode: it is
+# emitted (collected and/or notified) and nothing else is processed or notified — the
+# nodes still open are not closed. Every port exposes the three limits with its own
+# idiom (an options object, setters, keyword arguments), keeping these names
+# recognizable: max_nesting, max_line_length, max_input_size.
 
 CLASS Parser
 
     FIELD observers: Observer[] = []
+    FIELD stream_observers: StreamObserver[] = []
     FIELD validators: Validator[] = []
+
+    # Parser limits (STXT-SPEC §11.2); -1 disables one.
+    FIELD max_nesting: INTEGER     = DEFAULT_MAX_NESTING
+    FIELD max_line_length: INTEGER = DEFAULT_MAX_LINE_LENGTH
+    FIELD max_input_size: INTEGER  = DEFAULT_MAX_INPUT_SIZE
 
     # Registers an observer, notified when each node is opened and closed, and for
     # every comment and text line.
     PROCEDURE registerObserver(observer: Observer)
         observers.push(observer)
+    END PROCEDURE
+
+    # Registers a stream observer, notified with each completed root node and each
+    # error, in every mode (see processors/stream_observer.txt).
+    PROCEDURE registerStreamObserver(stream_observer: StreamObserver)
+        stream_observers.push(stream_observer)
     END PROCEDURE
 
     # Registers a validator, invoked when each node is closed.
@@ -46,14 +78,10 @@ CLASS Parser
     END FUNCTION
 
     # Multi-error mode: parses the whole content collecting every error found
-    # (both syntax and validation) without bailing out on the first one.
+    # (both syntax and validation) without bailing out on the first one — except a
+    # LimitException, which aborts and is in every case the last error collected.
     FUNCTION parseResult(content: STRING): ParseResult
-        content = removeUTF8BOM(content)
-
         result: ParseResult = ParseResult()
-        stack: Node[] = []
-        documents: Node[] = []
-        line_number: INTEGER = 0
 
         lines: STRING[] = splitLines(content)
 
@@ -63,25 +91,66 @@ CLASS Parser
             lines.pop()
         END IF
 
-        FOREACH line IN lines
-            line_number = line_number + 1
-            processLine(line, line_number, stack, documents, result)
-        END FOREACH
-
-        # Close every node still open at EOF
-        closeToLevel(stack, 0, result)
-
-        # Add the root nodes to the result
-        FOREACH doc IN documents
-            result.addNode(doc)
-        END FOREACH
+        parseLines(iterator(lines), result)
 
         RETURN result
     END FUNCTION
 
+    # Streaming mode: input from a line iterator (each item one line, without its
+    # line break; ports take their platform's natural line source — a lazy reader,
+    # a generator, an iterable), and nothing retained. Results reach the program
+    # only through the registered StreamObservers.
+    PROCEDURE parseStream(lines: ITERATOR<STRING>)
+        parseLines(lines, NULL)
+    END PROCEDURE
+
+    # Shared traversal. With a result, roots and errors are collected into it
+    # (parse()/parseResult()); with NULL, nothing is retained (parseStream()).
+    # Either way every registered callback fires the same.
+    PROCEDURE parseLines(lines: ITERATOR<STRING>, result: ParseResult | NULL)
+        stack: Node[] = []
+        line_number: INTEGER = 0
+        consumed: INTEGER = 0
+
+        FOREACH line IN lines
+            line_number = line_number + 1
+
+            # A UTF-8 BOM only means anything at the very start of the input (STXT-SPEC §3)
+            IF line_number == 1
+                line = removeUTF8BOM(line)
+            END IF
+
+            # Limits first (STXT-SPEC §11.2): a limit error aborts, leaving the
+            # open nodes unclosed and unnotified.
+            IF max_line_length != -1 AND line.length() > max_line_length
+                emitError(LimitException(line_number, "LIMIT_LINE_LENGTH_EXCEEDED",
+                    "Line longer than " + max_line_length + " characters"), result)
+                RETURN
+            END IF
+
+            consumed = consumed + line.length() + 1    # the line separator counts as one
+            IF max_input_size != -1 AND consumed > max_input_size
+                emitError(LimitException(line_number, "LIMIT_INPUT_SIZE_EXCEEDED",
+                    "Input larger than " + max_input_size + " characters"), result)
+                RETURN
+            END IF
+
+            TRY
+                processLine(line, line_number, stack, result)
+            CATCH le: LimitException
+                emitError(le, result)
+                RETURN
+            END TRY
+        END FOREACH
+
+        # Close every node still open at EOF
+        closeToLevel(stack, 0, result)
+    END PROCEDURE
+
     # Processes one source line. Errors of this line are collected into the result;
-    # the traversal continues with the next line.
-    PROCEDURE processLine(line_string, line_number, stack, documents, result)
+    # the traversal continues with the next line. A LimitException escapes instead:
+    # parseLines() aborts on it.
+    PROCEDURE processLine(line_string, line_number, stack, result)
         TRY
             last_node: Node = NULL
             IF NOT stack.isEmpty()
@@ -136,18 +205,24 @@ CLASS Parser
 
             current_level = line_indent.indent_level
 
+            # Nesting limit (STXT-SPEC §11.2): only a node line can open a new level.
+            # Comment and block text lines returned above; with the consecutive-level
+            # rule this triggers exactly when the first node at level max_nesting opens.
+            IF max_nesting != -1 AND current_level >= max_nesting
+                THROW LimitException(line_number, "LIMIT_NESTING_EXCEEDED",
+                    "Nesting deeper than " + max_nesting + " levels")
+            END IF
+
             # Close nodes down to the current level (finalizes them)
             closeToLevel(stack, current_level, result)
 
-            # Create the new node, attach it to its parent (or to the documents if it is a
-            # root) and keep it open on the stack. The parent is always an InlineNode: a
-            # TextNode on top of the stack only takes text lines (is_block above), and any
-            # line at its level or shallower has just closed it.
+            # Create the new node, attach it to its parent (or keep it as a root if the
+            # stack is empty) and keep it open on the stack. The parent is always an
+            # InlineNode: a TextNode on top of the stack only takes text lines (is_block
+            # above), and any line at its level or shallower has just closed it.
             node: Node = createNode(line_indent, line_number)
 
-            IF stack.isEmpty()
-                documents.push(node)
-            ELSE
+            IF NOT stack.isEmpty()
                 parent: InlineNode = stack.last()
                 parent.addChild(node)
             END IF
@@ -159,17 +234,22 @@ CLASS Parser
 
             stack.push(node)
 
+        CATCH le: LimitException
+            RETHROW le
         CATCH pe: ParseException
-            result.addError(pe)
+            emitError(pe, result)
         CATCH e
             # Unexpected platform error: collected as a ParseException
-            result.addError(ParseException(line_number, "UNEXPECTED_ERROR", e.getMessage()))
+            emitError(ParseException(line_number, "UNEXPECTED_ERROR", e.getMessage()), result)
         END TRY
     END PROCEDURE
 
     # Closes every node deeper than target_level: runs the validators over it and notifies
-    # the observers. (The node was attached to its parent when it was created.)
-    PROCEDURE closeToLevel(stack: Node[], target_level: INTEGER, result: ParseResult)
+    # the observers. (The node was attached to its parent when it was created.) When the
+    # node closed is a root — the stack is left empty — the StreamObservers receive it
+    # complete by onRootNode(), and it is collected into the result if there is one
+    # (parse()/parseResult()) or released (parseStream()).
+    PROCEDURE closeToLevel(stack: Node[], target_level: INTEGER, result: ParseResult | NULL)
 
         WHILE stack.size() > target_level
 
@@ -180,13 +260,13 @@ CLASS Parser
                 TRY
                     errors: ValidationException[] = validator.validate(completed)
                     FOREACH error IN errors
-                        result.addError(error)
+                        emitError(error, result)
                     END FOREACH
                 CATCH pe: ParseException
-                    result.addError(pe)
+                    emitError(pe, result)
                 CATCH e
                     # A validator that throws unexpectedly does not abort the parse
-                    result.addError(ParseException(completed.getLine(), "UNEXPECTED_ERROR", e.getMessage()))
+                    emitError(ParseException(completed.getLine(), "UNEXPECTED_ERROR", e.getMessage()), result)
                 END TRY
             END FOREACH
 
@@ -195,8 +275,31 @@ CLASS Parser
                 observer.onFinish(completed)
             END FOREACH
 
+            # A closed root: the stream observers receive it, the result collects it
+            IF stack.isEmpty()
+                FOREACH stream_observer IN stream_observers
+                    stream_observer.onRootNode(completed)
+                END FOREACH
+
+                IF result IS NOT NULL
+                    result.addNode(completed)
+                END IF
+            END IF
+
         END WHILE
 
+    END PROCEDURE
+
+    # Every error goes through here: collected into the result when there is one, and
+    # notified to the StreamObservers always, in order of appearance.
+    PROCEDURE emitError(error: ParseException, result: ParseResult | NULL)
+        IF result IS NOT NULL
+            result.addError(error)
+        END IF
+
+        FOREACH stream_observer IN stream_observers
+            stream_observer.onError(error)
+        END FOREACH
     END PROCEDURE
 
 END CLASS

@@ -47,6 +47,20 @@ CLASS ParseException
 
 END CLASS
 
+# A parser limit exceeded (STXT-SPEC §11.2): nesting depth, line length or input
+# size. Extends ParseException (it carries the line where the limit was hit), but
+# unlike any other parse error it ABORTS the parse: it is emitted and no further
+# input is processed, in every mode — fail-fast, multi-error and streaming — so it
+# is always the last error. Exceeding a limit does not make the document invalid:
+# the same document may parse under higher limits.
+CLASS LimitException EXTENDS ParseException
+
+    CONSTRUCTOR (line, code, message)
+        super(line, code, message)
+    END CONSTRUCTOR
+
+END CLASS
+
 # Semantic validation error (schema, type or cardinality), detected when a node is
 # closed. Extends ParseException so both travel together in ParseResult.getErrors();
 # implementations that tell them apart (e.g. an editor painting validation errors as
@@ -98,6 +112,11 @@ END CLASS
 #   INVALID_NODE_NAME              §11.7-8 empty canonical name / bad characters
 #   INVALID_NAMESPACE              §11.9  malformed namespace
 #   UNEXPECTED_ERROR               wrapper for an unforeseen exception          (was VALIDATION_ERROR / UNKNOWN_VALIDATION_ERROR)
+
+# STXT-SPEC §11.2 — parser limits (LimitException; they abort the parse; since 0.14.0)
+#   LIMIT_NESTING_EXCEEDED         a line opens a node at level >= max nesting (default 100)
+#   LIMIT_LINE_LENGTH_EXCEEDED     one input line longer than max line length (default 10000)
+#   LIMIT_INPUT_SIZE_EXCEEDED      total input consumed over max input size (default 10000000)
 
 # STXT-SCHEMA-SPEC §13.1 — schema load (ValidationException)
 #   SCHEMA_ROOT_NOT_VALID          root not 'Schema (@stxt.schema): ns' or ns invalid   (was NOT_STXT_SCHEMA)

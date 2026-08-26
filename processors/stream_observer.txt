@@ -1,0 +1,29 @@
+# StreamObserver: process hook notified by the Parser with the stream of RESULTS a
+# parse emits: each completed root node, and every error. It complements Observer
+# (observer.txt), which watches the process line by line — node open/close, comments,
+# text lines —: a StreamObserver only sees finished roots and errors, so a consumer
+# that processes a document root by root never has to ask a node for its level.
+# Register it with Parser.registerStreamObserver(); a class MAY implement Observer,
+# StreamObserver or both.
+#
+# It fires in every entry point — parse(), parseResult() and parseStream() — exactly
+# the same way; what parseStream() adds is that the parser retains nothing, so there
+# these callbacks are the only way to get the results (see core/parser.txt).
+# StreamObservers MUST NOT modify the nodes they receive.
+
+INTERFACE StreamObserver
+
+    # Called when a root (level 0) node is closed, with its whole subtree already
+    # complete — children, values, text lines — and its validators already run.
+    # In parseStream() the parser releases the node right after this call, so the
+    # memory in use is one root tree at a time.
+    PROCEDURE onRootNode(node: Node)
+
+    # Called for every error found (syntax or validation), in order of appearance.
+    # Parsing continues with the next line, except for LIMIT_* errors
+    # (LimitException, STXT-SPEC §11.2), which abort the parse right after this
+    # call. In fail-fast parse() the observer still sees every error before the
+    # first one is thrown, because parse() reuses the parseResult() traversal.
+    PROCEDURE onError(error: ParseException)
+
+END INTERFACE

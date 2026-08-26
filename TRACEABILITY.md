@@ -14,7 +14,11 @@ into platform-neutral algorithms and data contracts. A port must be corrected wh
 disagrees with either one; this document does not create independent language rules.
 
 The canonical specifications are `../stxt-lang/es/stxt-*-ref.stxt`. At the time of this
-map (2026-08-16, updated 2026-08-22), STXT-SPEC has `Last modif: 2026-08-22` (an indented first
+map (2026-08-16, updated 2026-08-26), STXT-SPEC has `Last modif: 2026-08-26` (parser limits —
+nesting depth, line length and input size, with defaults, `LIMIT_*` codes and the abort rule,
+§11.2, the 0.14.0 change, mirrored in `core/parser.txt`, `core/constants.txt`,
+`exceptions/exceptions.txt` — `LimitException` — and, API only, the `StreamObserver` of
+`processors/stream_observer.txt` with the `parseStream()` entry point; before that: an indented first
 line is a level jump, reference level -1 with no open node, §8.3; comment indentation
 validated like a node's, §9, the 0.9.0 change; *blank* defined as
 U+0020/U+0009 only, §4; comments close `>>` blocks, §6.1/§9.1; combining marks `Mn`/`Mc` allowed
@@ -58,12 +62,12 @@ the pseudocode's normative scope.
 | `core/line_indent.txt` | STXT-SPEC §§8–10 | `src/core/Line.ts`, `LineParser.ts` | `dev.stxt.LineIndent`, `LineIndentParser` | `stxt/core/line_indent.py` |
 | `core/name_namespace.txt` | STXT-SPEC §§4.1, 7 | `src/core/NameNamespace.ts`, `NameNamespaceParser.ts` | `dev.stxt.NameNamespace`, `NameNamespaceParser` | `stxt/core/name_namespace.py` |
 | `core/node.txt` (`Node`, `InlineNode`, `TextNode`) | STXT-SPEC §§4–7, 8.4; STXT-TREE-SPEC (two forms) | `src/core/Node.ts`, `InlineNode.ts`, `TextNode.ts`, `NodeCreator.ts` | `dev.stxt.Node`, `InlineNode`, `TextNode` | `stxt/core/node.py` (`Node`, `InlineNode`, `TextNode`, `NO_LINE`) |
-| `core/parse_result.txt`, `parser.txt` | STXT-SPEC §§3–12 | `src/core/ParseResult.ts`, `Parser.ts` | `dev.stxt.ParseResult`, `Parser` | `stxt/core/parse_result.py`, `parser.py` |
+| `core/parse_result.txt`, `parser.txt` (parser limits §11.2 and `parseStream()` since 0.14.0) | STXT-SPEC §§3–12 | `src/core/ParseResult.ts`, `Parser.ts` | `dev.stxt.ParseResult`, `Parser` | `stxt/core/parse_result.py`, `parser.py` |
 | `core/node_writer.txt` | STXT-TREE-SPEC §11 (canonical text form, normative since 2026-08-23); round-trip property | `src/runtime/NodeWriter.ts` | `dev.stxt.runtime.NodeWriter` | `stxt/runtime/node_writer.py` |
 | `core/formatter.txt` | STXT-TREE-SPEC §12 (reformatting, normative since 2026-08-23; until then the JS-only `Formatter` of 0.11.1) | `src/runtime/Formatter.ts` | `dev.stxt.runtime.Formatter`, `FormatResult` | `stxt/runtime/formatter.py` (`Formatter`, `FormatResult`) |
 | `core/tree_json.txt` | STXT-TREE-SPEC §§3–9 | `src/runtime/TreeJson.ts` | `dev.stxt.runtime.TreeJson` | `stxt/runtime/tree_json.py` |
 | `exceptions/exceptions.txt` | Stable error-code contract | `src/exceptions/*.ts` | `dev.stxt.exceptions.*` | `stxt/exceptions/__init__.py` |
-| `processors/observer.txt`, `validator.txt` | STXT-SPEC §§12, 17.3; schema/template §3 | `src/processors/*.ts` | `dev.stxt.processors.*` | `stxt/processors/observer.py`, `validator.py` |
+| `processors/observer.txt`, `stream_observer.txt` (since 0.14.0), `validator.txt` | STXT-SPEC §§12, 17.3; schema/template §3 | `src/processors/*.ts` | `dev.stxt.processors.*` | `stxt/processors/observer.py`, `stream_observer.py`, `validator.py` |
 | `schema/child_definition.txt`, `node_definition.txt`, `schema.txt` | STXT-SCHEMA-SPEC §§4, 6–10 | `src/schema/ChildDefinition.ts`, `NodeDefinition.ts`, `Schema.ts` | `dev.stxt.schema.ChildDefinition`, `NodeDefinition`, `Schema` | `stxt/schema/child_definition.py`, `node_definition.py`, `schema.py` |
 | `schema/schema_parser.txt`, `schema_provider.txt` | STXT-SCHEMA-SPEC §§4–8, 13, 15 | `src/schema/SchemaParser.ts`, `SchemaProvider*.ts` | `dev.stxt.schema.SchemaParser`, `SchemaProvider*` | `stxt/schema/schema_parser.py`, `schema_provider.py` |
 | `schema/schema_validator.txt`, `types.txt` | STXT-SCHEMA-SPEC §§6, 9–14 | `src/schema/SchemaValidator.ts`, `Type*.ts`, `type/*` | `dev.stxt.schema.SchemaValidator`, `Type*.java`, `type/*` | `stxt/schema/schema_validator.py`, `types.py` (all types in one module) |
