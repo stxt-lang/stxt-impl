@@ -85,7 +85,7 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
             text: STRING = rightTrim(line.substring(pointer + 1))
 
             # The prefix covering the block level MUST be homogeneous (§10.2 rule 1).
-            # Empty lines are always preserved and exempt from the check (§10.3).
+            # Empty lines are never an error and are exempt from the check (§10.3).
             IF saw_space AND saw_tab AND text.length() > 0
                 THROW ParseException(num_line, "INDENTATION_MIXED", "Mixed tabs and spaces in indentation")
             END IF
@@ -104,7 +104,8 @@ FUNCTION parseLine(line: STRING, last_node_block: BOOLEAN, last_level: INTEGER, 
     # Empty or whitespace-only line
     IF pointer == line.length()
         IF last_node_block
-            # Empty lines inside a block are preserved as "" (§10.3)
+            # Empty lines inside a block are text lines of the block ("", §10.3);
+            # the final ones are removed from the content when the block closes
             RETURN LineIndent(level, "", false, true, pointer)
         ELSE
             # Empty lines outside a block are ignored; indentation not validated (§11)

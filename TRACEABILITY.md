@@ -14,7 +14,14 @@ into platform-neutral algorithms and data contracts. A port must be corrected wh
 disagrees with either one; this document does not create independent language rules.
 
 The canonical specifications are `../stxt-lang/es/stxt-*-ref.stxt`. At the time of this
-map (2026-08-16, updated 2026-08-26), STXT-SPEC has `Last modif: 2026-08-26` (parser limits —
+map (2026-08-16, updated 2026-08-27), STXT-SPEC has `Last modif: 2026-08-27` (the final empty
+lines of a `>>` block are discarded when it closes, §10.3, the 0.15.0 change — leading and
+intermediate ones are kept, an empty line still never closes a block, and a block of only
+blank lines is as empty as one with no lines; mirrored in `core/parser.txt` — the trim happens
+in `closeToLevel` through the new `TextNode.removeTrailingEmptyLines()` of `core/node.txt` —
+`core/node_writer.txt` — the writer never emits final empty lines, §11.1 rule 6 — and
+`core/formatter.txt` — a final blank line of a block is reformatted as a plain line, §12.1
+rule 3. Before that: parser limits —
 nesting depth, line length and input size, with defaults, `LIMIT_*` codes and the abort rule,
 §11.2, the 0.14.0 change, mirrored in `core/parser.txt`, `core/constants.txt`,
 `exceptions/exceptions.txt` — `LimitException` — and, API only, the `StreamObserver` of
@@ -23,7 +30,7 @@ line is a level jump, reference level -1 with no open node, §8.3; comment inden
 validated like a node's, §9, the 0.9.0 change; *blank* defined as
 U+0020/U+0009 only, §4; comments close `>>` blocks, §6.1/§9.1; combining marks `Mn`/`Mc` allowed
 in names, §4.2), STXT-TREE-SPEC has
-`Last modif: 2026-08-23` (still `Version: 1.0` by decision, until the portal is published; §11 canonical text form and §12 reformatting, which make
+`Last modif: 2026-08-27` (still `Version: 1.0` by decision, until the portal is published; on 2026-08-27, with the §10.3 change, `lines` never ends in `""`, §5, and the writer MUST NOT emit final empty lines of a programmatically built block, §11.1 rule 6, which makes the canonical text of several roots round-trip exactly; before, §11 canonical text form and §12 reformatting, which make
 `node_writer.txt` and the JS `Formatter` normative; `node_writer.txt` and the three `NodeWriter` follow §11.1 rule 3 since the same day: the
 namespace is written only where it changes from the parent's, not where the source declared it); STXT-SCHEMA-SPEC has `Last modif: 2026-08-21` (the grammar of every value type of §9.3–9.5 is now
 normative — `NUMBER` is explicitly not the JSON number, `DATE`/`TIME`/`TIMESTAMP` check calendar and
@@ -88,7 +95,9 @@ They may be documented by ports but are not normative pseudocode modules. (The
 
 The parser must accept UTF-8 with optional BOM, LF and CRLF; implement both node
 forms; preserve sibling/root order; support multiple roots; calculate indentation by
-level; and preserve the literal behaviour of `>>` blocks, including blank lines, with
+level; and preserve the literal behaviour of `>>` blocks, including the blank lines that
+precede more block text — the final blank lines of a block are discarded when it closes
+(STXT-SPEC §10.3, since 2026-08-27, the 0.15.0 ports; before, they were kept) — with
 any non-empty line at the block node's level or shallower — comments included — closing
 the block (STXT-SPEC §9.1, since 2026-08-20; before, comments were transparent to blocks). Since
 2026-08-21 (the 0.9.0 ports) the indentation of a comment is validated like a node's —
@@ -206,3 +215,4 @@ the shared `stxt-lang` corpus. (Python: `test_core.py`, `test_providers.py`,
 | `URL` grammar | `Url: https://stxt.dev/path?q=1#f`, `HTTP://EXAMPLE.COM/`, `http://localhost:8080/`, `ftp://user:pw@example.com/`, `http://[::1]:80/x`, `git+ssh://host/repo.git`, `https://例え.jp/パス`; and `stxt.dev`, `mailto:ana@example.com`, `urn:isbn:1`, `file:///etc/hosts`, `http://`, `http:/stxt.dev`, `https://exa mple.com`, `https://host:abc`, `http://[::1`, `http://user@`, the empty value. | The first group validates, the second is `INVALID_VALUE`, identically in every port: the check is the regular expression of `schema/types.txt`, never `new URL()`, `java.net.URI` or `urllib`. The block form is `BLOCK_FORM_NOT_ALLOWED`. STXT-SCHEMA-SPEC §9.4, since 2026-08-21. |
 | Comment indentation | `Root:` followed by comments at levels 0, 1 and, after a childless `First: 1` at level 1, at level 2; a comment right after a `>>` block at the block's level; a root after a level-0 comment. Also `Root:` followed by a comment with three spaces, by one at level 2, and by one mixing a tab and spaces. | The first document parses and its tree is `conformance/tree/comment-indent`: the comments leave no trace and the node after each one is checked against the last node, not the comment (`Second` at level 1 after a level-2 comment is fine). The three others are rejected with the node codes: `INDENTATION_SPACES_NOT_VALID`, `INDENTATION_LEVEL_NOT_VALID`, `INDENTATION_MIXED`. STXT-SPEC §9, §11, since 2026-08-21. |
 | Comment closes a block | `Root:` with a `Body >>` child holding two text lines, the second one `# still text`; then a comment line at the level of `Body` (or shallower); then a sibling `After: x`. Also the same document with a text line after the comment. | The block has exactly the two text lines (the `#` one is text), the comment closes it, and `After` is a sibling of `Body`; nothing above the block closes. With a text line after the comment, the document is rejected with `INDENTATION_LEVEL_NOT_VALID` (also when the block is a root: with every node closed the reference level is -1, STXT-SPEC §8.3, since 2026-08-22; until then it was `INVALID_LINE`). Blank lines after the closing comment are not block content. Conformance pair `conformance/tree/comment-closes-block` (STXT-SPEC §6.1, §9.1, since 2026-08-20). |
+| Final empty lines of a block | `B >>` with one text line followed by blank lines and then EOF (with zero, one or several final line breaks); the same closed by a level-0 node; a block with a leading blank line before its text and an intermediate one inside; a block whose only lines are blank. | The final blank lines are discarded when the block closes: the first two documents yield `["text"]`, whatever the final line breaks — two visually identical documents produce the same tree. Leading and intermediate blank lines are kept (`["", "text"]`; `["a", "", "b"]`), an empty line never closes a block, and the only-blank block yields `[]`, like a block with no lines. `Observer.onTextLine` still fires for every physical block line. `NodeWriter` never emits final empty lines (a programmatically built node with trailing `""` writes without them), and the `Formatter` reformats them as plain blank lines, unindented. Conformance pairs `conformance/tree/trailing-blank` and the updated `tree/blank-line`, `tree/tree`, `tree/trim` (STXT-SPEC §10.3, since 2026-08-27, the 0.15.0 ports). |

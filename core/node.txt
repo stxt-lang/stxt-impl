@@ -355,6 +355,16 @@ CLASS TextNode EXTENDS Node
         lines.push(text_line)
     END PROCEDURE
 
+    # Removes the final empty lines ("" elements at the end of lines). The parser calls it
+    # when the block closes (STXT-SPEC §10.3: the final empty lines of a block are not
+    # content); it is public because a programmatically built node may want the same
+    # normalization before writing.
+    PROCEDURE removeTrailingEmptyLines()
+        WHILE lines.length() > 0 AND lines.last() == ""
+            lines.pop()
+        END WHILE
+    END PROCEDURE
+
     PROCEDURE clearText()
         lines = []
     END PROCEDURE

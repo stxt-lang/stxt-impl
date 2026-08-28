@@ -29,7 +29,9 @@ CLASS TreeJson
 
     FUNCTION toCanonicalNode(node: Node): MAP
         IF node IS TextNode
-            # Copy the lines exactly, including empty and trailing empty lines.
+            # Copy the lines exactly, including empty lines. A parsed block never ends in
+            # "" (STXT-SPEC §10.3: the parser drops the final empty lines when the block
+            # closes), so the emitter has nothing to trim here.
             RETURN {
                 "name": node.getName(),
                 "canonicalName": node.getCanonicalName(),

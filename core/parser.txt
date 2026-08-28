@@ -255,6 +255,15 @@ CLASS Parser
 
             completed: Node = stack.pop()
 
+            # A closing BLOCK node drops its final empty lines (STXT-SPEC §10.3): they are
+            # not content, only visual separation or an editor's final line breaks. The
+            # validators and observers below already see the trimmed node. Observer
+            # callbacks are process observation and fired as the lines were read, so
+            # onTextLine() did fire for these lines while the block was open.
+            IF completed IS TextNode
+                completed.removeTrailingEmptyLines()
+            END IF
+
             # Hand it over to the validators: they return errors, they do not throw
             FOREACH validator IN validators
                 TRY

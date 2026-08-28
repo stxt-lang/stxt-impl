@@ -58,11 +58,22 @@ CLASS NodeWriter
         IF n IS TextNode
             out.push(" >>\n")
 
-            # Block lines are written one level deeper than the node
-            FOREACH text_line IN n.getTextLines()
+            # Block lines are written one level deeper than the node. Final empty lines are
+            # not emitted (STXT-TREE-SPEC §11.1 rule 6): parsing never produces them
+            # (STXT-SPEC §10.3), and on a programmatically built node they would not
+            # survive the round trip.
+            text_lines: STRING[] = n.getTextLines()
+            last: INTEGER = text_lines.length()
+            WHILE last > 0 AND text_lines[last - 1] == ""
+                last = last - 1
+            END WHILE
+
+            i: INTEGER = 0
+            WHILE i < last
                 writeIndent(out, depth + 1, style)
-                out.push(text_line + "\n")
-            END FOREACH
+                out.push(text_lines[i] + "\n")
+                i = i + 1
+            END WHILE
         ELSE
             # n IS InlineNode: value, then the children one level deeper
             out.push(":")
