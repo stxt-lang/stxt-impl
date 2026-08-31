@@ -1,0 +1,36 @@
+# DefinitionCompiler: the one pipeline every definition loader shares, whatever the
+# store: SchemaProviderMemory / TemplateSchemaProviderMemory (a document each), the
+# unified file loaders of the ports (several roots per file) and discovery (idem).
+#
+# The pipeline is always the same: the definition node is validated against the
+# meta-schema of its kind (@stxt.schema or @stxt.template) and, only when valid,
+# transformed into a Schema. A definition that does not validate MUST NOT be
+# registered anywhere: the first validation finding is thrown instead. Everything
+# that changes between the two kinds arrives as a parameter (the meta provider, the
+# transform function, the error code), so a policy change here reaches every loader.
+
+# Validates one root node against the meta provider of its kind and compiles it into
+# a Schema, throwing the first validation error found.
+FUNCTION compileNode(node: Node, meta: SchemaProvider, transform: FUNCTION(Node): Schema): Schema
+    validator: SchemaValidator = SchemaValidator(meta, true)
+    errors: ValidationException[] = validator.validate(node)
+    IF errors.length() > 0
+        THROW errors[0]
+    END IF
+
+    RETURN transform(node)
+END FUNCTION
+
+# Parses a whole document that MUST hold exactly one definition, and compiles it.
+# multiple_roots_code tells the kinds apart (SCHEMA_MULTIPLE_ROOTS for schemas,
+# TEMPLATE_MULTIPLE_ROOTS for templates).
+FUNCTION compileDocument(text: STRING, meta: SchemaProvider, transform: FUNCTION(Node): Schema,
+        multiple_roots_code: STRING): Schema
+    nodes: Node[] = Parser().parse(text)
+    IF nodes.length() != 1
+        THROW ValidationException(ParseException.NO_LINE, multiple_roots_code,
+            "A definition document must hold exactly 1 root node, got " + nodes.length())
+    END IF
+
+    RETURN compileNode(nodes[0], meta, transform)
+END FUNCTION

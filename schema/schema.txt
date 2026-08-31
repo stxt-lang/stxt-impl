@@ -43,14 +43,15 @@ CLASS Schema
     END FUNCTION
 
     PROCEDURE addNodeDefinition(node_definition: NodeDefinition)
-        qname: STRING = node_definition.getCanonicalName()
+        canonical_name: STRING = node_definition.getCanonicalName()
 
         # Two Node definitions cannot share a canonical name (schema error)
-        IF nodes.containsKey(qname)
-            THROW ValidationException(0, "NODE_DUPLICATED", "Exists a previous node definition with: " + qname)
+        IF nodes.containsKey(canonical_name)
+            THROW ValidationException(ParseException.NO_LINE, "NODE_DUPLICATED",
+                "A node definition with the same name already exists: " + canonical_name)
         END IF
 
-        nodes.put(qname, node_definition)
+        nodes.put(canonical_name, node_definition)
     END PROCEDURE
 
 END CLASS

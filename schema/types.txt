@@ -157,19 +157,13 @@ CLASS TEXT IMPLEMENTS Type
     END PROCEDURE
 END CLASS
 
-# MARKDOWN: Markdown content (§9.7). For validation purposes it is equivalent to TEXT:
-# any content is valid Markdown; only children are forbidden.
-CLASS MARKDOWN IMPLEMENTS Type
+# MARKDOWN: Markdown content (§9.7). For validation purposes it is equivalent to TEXT
+# (any content is valid Markdown; only children are forbidden), so it inherits the
+# validation and only the name differs.
+CLASS MARKDOWN EXTENDS TEXT
     FUNCTION getName(): STRING
         RETURN "MARKDOWN"
     END FUNCTION
-
-    PROCEDURE validate(ns_node: NodeDefinition, n: Node)
-        # Only an InlineNode has children
-        IF n IS InlineNode AND n.getChildren().size() > 0
-            THROW ValidationException(n.getLine(), "CHILDREN_NOT_ALLOWED", "Not allowed children nodes in node " + n.getQualifiedName())
-        END IF
-    END PROCEDURE
 END CLASS
 
 # ENUM: the inline value MUST match exactly (case-sensitive) one of the allowed values.

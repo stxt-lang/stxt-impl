@@ -16,7 +16,14 @@
 # Syntax error detected while parsing (lexical/structural phase, not schema).
 CLASS ParseException
 
-    FIELD line: INTEGER         # line number of the document where the error was detected
+    # Line of an error that has no single source line: it concerns the document as a
+    # whole (SCHEMA_MULTIPLE_ROOTS) or a condition with no one line to point at
+    # (NODE_DUPLICATED, CHILD_NOT_DEFINED). The value 0 is part of the conformance
+    # surface (the kit asserts it). It is NOT Node.NO_LINE (-1), which marks nodes
+    # built programmatically and never appears in errors.
+    CONSTANT NO_LINE: INTEGER = 0
+
+    FIELD line: INTEGER         # line number of the document where the error was detected, or NO_LINE
     FIELD code: STRING          # error code in UPPERCASE (e.g. "INVALID_LINE")
     FIELD message: STRING
 
@@ -173,4 +180,4 @@ END CLASS
 
 # In-memory API (RuntimeException, not conformance surface)
 #   AMBIGUOUS_CHILD, NODE_ALREADY_ATTACHED, NODE_CYCLE, TYPE_DUPLICATED (was DUPLICATED_TYPE)
-# Internal: META_SCHEMA_INVALID, META_SCHEMA_NOT_AVAILABLE
+# Internal: META_SCHEMA_INVALID (META_SCHEMA_NOT_AVAILABLE was removed on 2026-08-31: it guarded a state the constructors make unreachable)

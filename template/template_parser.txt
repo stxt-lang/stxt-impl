@@ -14,15 +14,18 @@
 FUNCTION transformNodeToSchema(node: Node): Schema
 
     # The root MUST be "template" in the @stxt.template namespace, and its value (the
-    # target namespace) MUST be empty or syntactically valid (NAMESPACE_FORMAT of
-    # core/validations.txt). Parallel of SCHEMA_ROOT_NOT_VALID in schema/schema_parser.txt;
-    # emptiness is checked by the provider (TEMPLATE_NAMESPACE_EMPTY).
+    # target namespace) MUST be declared and syntactically valid (NAMESPACE_FORMAT of
+    # core/validations.txt). Parallel of SCHEMA_ROOT_NOT_VALID / SCHEMA_NAMESPACE_EMPTY
+    # in schema/schema_parser.txt; checking here covers every loading path.
     IF node.getCanonicalName() != "template" OR node.getNamespace() != Schema.TEMPLATE_NAMESPACE
         THROW ValidationException(node.getLine(), "TEMPLATE_ROOT_NOT_VALID",
             "Expected template(" + Schema.TEMPLATE_NAMESPACE + ") but got " + node.getCanonicalName() + "(" + node.getNamespace() + ")")
     END IF
     target: STRING = node.getText()
-    IF NOT isEmpty(target) AND NOT NAMESPACE_FORMAT.matches(target.toLowerCase())
+    IF isEmpty(target)
+        THROW ValidationException(node.getLine(), "TEMPLATE_NAMESPACE_EMPTY", "Template namespace is empty")
+    END IF
+    IF NOT NAMESPACE_FORMAT.matches(target.toLowerCase())
         THROW ValidationException(node.getLine(), "TEMPLATE_ROOT_NOT_VALID", "Template namespace not valid: " + target)
     END IF
 
@@ -72,7 +75,13 @@ FUNCTION transformNodeToSchema(node: Node): Schema
     RETURN result
 END FUNCTION
 
-# Adds to the schema the definition a Structure node declares, along with its children.
+# Adds to the schema the definition a Structure node declares, along with its
+# children. Only the orchestration lives here; each of the three shapes a Structure
+# line can take has its own helper below:
+#   * a node of an external namespace  -> validateExternalNode() and nothing is created
+#   * a name seen for the first time   -> createDefinition()
+#   * a reappearance                   -> validateReference() and nothing is created
+# and the children of a definition are declared and recursed by addChildren().
 PROCEDURE addToSchema(schema: Schema, node: Node)
 
     # A Structure line belongs to the template grammar, not merely to the core
@@ -84,124 +93,142 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
     END IF
     # From here on node IS InlineNode: value and children are available
 
-    namespace: STRING = node.getNamespace()
-    name: STRING      = node.getName()
-
     # Parse the RuleSpec (cardinality / type / values) from the inline value
     cl: ChildLine = ChildLineParser.parse(node.getValue(), node.getLine())
 
     # No explicit namespace => the target namespace of the template
+    namespace: STRING = node.getNamespace()
     IF isEmpty(namespace)
         namespace = schema.getNamespace()
     END IF
 
-    # Cross-namespace node: NOT defined locally; it may only declare cardinality —
-    # no type, no ENUM values and no children (§6.4, §10 and §14.15).
     IF namespace != schema.getNamespace()
-        type: STRING = cl.getType()
-        IF type IS NOT NULL AND NOT StringUtils.trim(type).isEmpty()
-            THROW ValidationException(node.getLine(), "TYPE_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE",
-                "Not allowed type definition in external namespaces")
-        END IF
-
-        IF cl.getValues() IS NOT NULL
-            THROW ValidationException(node.getLine(), "VALUES_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE",
-                "Not allowed values in external namespaces (node " + node.getName() + ")")
-        END IF
-
-        IF node.getChildren().size() > 0
-            THROW ValidationException(node.getLine(), "CHILDREN_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE",
-                "Not allowed children in external namespaces (node " + node.getName() + ")")
-        END IF
-
+        validateExternalNode(node, cl)
         RETURN     # no definitions are created for nodes of other namespaces
     END IF
 
     # New definition or a reappearance (reference)?
-    schema_node: NodeDefinition = schema.getNodeDefinition(name)
+    schema_node: NodeDefinition = schema.getNodeDefinition(node.getName())
 
-    IF schema_node IS NULL
-        # --- New definition ---
-        type: STRING = cl.getType()
-        IF type IS NULL
-            type = "INLINE"
-        END IF
-
-        # A "@" here means a reference that resolved to nothing: at this point the
-        # schema already holds both the previous (closed) definitions and the open
-        # ancestors (§6.4 and §14.11).
-        IF type.startsWith("@")
-            THROW ValidationException(node.getLine(), "REFERENCE_NOT_FOUND",
-                "Reference '" + type + "' does not point to a previous definition or an open ancestor")
-        END IF
-
-        schema_node = NodeDefinition(node.getName(), type, node.getLine(), NULL)
-        schema.addNodeDefinition(schema_node)
-
-        IF TypeRegistry.get(type) IS NULL
-            THROW ValidationException(node.getLine(), "TYPE_NOT_VALID", "Type not valid: " + type)
-        END IF
-
-        # ENUM values, if any
-        values: STRING[] = cl.getValues()
-        IF values IS NOT NULL
-            IF type != "ENUM"
-                # Same code as SchemaParser: a template is sugar equivalent to a schema
-                THROW ValidationException(node.getLine(), "VALUES_NOT_ALLOWED_FOR_TYPE",
-                    "Values only supported for type ENUM, not for type " + type)
-            END IF
-
-            FOREACH value IN values
-                schema_node.addValue(value, node.getLine())
-            END FOREACH
-        END IF
-
-        # An ENUM with no list of values is an invalid template (§9 and §13.7)
-        IF type == "ENUM" AND (values IS NULL OR values.length() == 0)
-            THROW ValidationException(node.getLine(), "VALUES_REQUIRED", "ENUM Type must include values")
-        END IF
-
-    ELSE
-        # --- Reappearance: MUST be a "@Node Name" reference ---
-        type: STRING = cl.getType()
-
-        # A reappearance without "@" would redefine an existing node: error.
-        IF type IS NULL OR NOT type.startsWith("@")
-            THROW ValidationException(node.getLine(), "REFERENCE_REQUIRED",
-                "Multiple node reference must start with @: " + node.getName())
-        END IF
-
-        reference: STRING = StringUtils.trim(type.substring(1))
-
-        # Reference and explicit type on the same line (§14.13)
-        explicit_type: STRING = referenceType(reference, node.getCanonicalName())
-        IF explicit_type IS NOT NULL
-            THROW ValidationException(node.getLine(), "REFERENCE_WITH_TYPE_NOT_ALLOWED",
-                "Reference '@" + node.getName() + "' can not declare a type: " + explicit_type)
-        END IF
-
-        # The name of the reference MUST match (canonically) the one of the line (§14.12)
-        IF normalizeChars(reference) != node.getCanonicalName()
-            THROW ValidationException(node.getLine(), "REFERENCE_NAME_NOT_VALID",
-                "Reference must be '@" + node.getName() + "', not '" + reference + "'")
-        END IF
-
-        # A reference may override the cardinality, but it may redefine neither the
-        # ENUM values nor the children (§6.4)
-        IF cl.getValues() IS NOT NULL
-            THROW ValidationException(node.getLine(), "VALUES_NOT_ALLOWED_IN_REFERENCE",
-                "Reference '@" + node.getName() + "' can not redefine ENUM values")
-        END IF
-
-        IF node.getChildren().size() > 0
-            THROW ValidationException(node.getLine(), "CHILDREN_NOT_ALLOWED_IN_REFERENCE",
-                "Reference '@" + node.getName() + "' can not redefine children")
-        END IF
-
+    IF schema_node IS NOT NULL
+        validateReference(node, cl)
         RETURN     # valid reference: nothing is redefined, no children are processed
     END IF
 
-    # The definition exists: process its direct children.
+    schema_node = createDefinition(schema, node, cl)
+    addChildren(schema, schema_node, node)
+END PROCEDURE
+
+# Cross-namespace node (§6.4, §10 and §14.15): NOT defined locally; it may only
+# declare cardinality — no type, no ENUM values and no children.
+PROCEDURE validateExternalNode(node: InlineNode, cl: ChildLine)
+
+    type: STRING = cl.getType()
+    IF type IS NOT NULL AND NOT StringUtils.trim(type).isEmpty()
+        THROW ValidationException(node.getLine(), "TYPE_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE",
+            "Not allowed type definition in external namespaces")
+    END IF
+
+    IF cl.getValues() IS NOT NULL
+        THROW ValidationException(node.getLine(), "VALUES_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE",
+            "Not allowed values in external namespaces (node " + node.getName() + ")")
+    END IF
+
+    IF node.getChildren().size() > 0
+        THROW ValidationException(node.getLine(), "CHILDREN_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE",
+            "Not allowed children in external namespaces (node " + node.getName() + ")")
+    END IF
+END PROCEDURE
+
+# First appearance of a name: creates its NodeDefinition (with its type and its ENUM
+# values, when it has them) and registers it in the schema.
+FUNCTION createDefinition(schema: Schema, node: InlineNode, cl: ChildLine): NodeDefinition
+
+    type: STRING = cl.getType()
+    IF type IS NULL
+        type = "INLINE"
+    END IF
+
+    # A "@" here means a reference that resolved to nothing: at this point the
+    # schema already holds both the previous (closed) definitions and the open
+    # ancestors (§6.4 and §14.11).
+    IF type.startsWith("@")
+        THROW ValidationException(node.getLine(), "REFERENCE_NOT_FOUND",
+            "Reference '" + type + "' does not point to a previous definition or an open ancestor")
+    END IF
+
+    schema_node: NodeDefinition = NodeDefinition(node.getName(), type, node.getLine(), NULL)
+    schema.addNodeDefinition(schema_node)
+
+    IF TypeRegistry.get(type) IS NULL
+        THROW ValidationException(node.getLine(), "TYPE_NOT_VALID", "Type not valid: " + type)
+    END IF
+
+    # ENUM values, if any
+    values: STRING[] = cl.getValues()
+    IF values IS NOT NULL
+        IF type != "ENUM"
+            # Same code as SchemaParser: a template is sugar equivalent to a schema
+            THROW ValidationException(node.getLine(), "VALUES_NOT_ALLOWED_FOR_TYPE",
+                "Values only supported for type ENUM, not for type " + type)
+        END IF
+
+        FOREACH value IN values
+            schema_node.addValue(value, node.getLine())
+        END FOREACH
+    END IF
+
+    # An ENUM with no list of values is an invalid template (§9 and §13.7)
+    IF type == "ENUM" AND (values IS NULL OR values.length() == 0)
+        THROW ValidationException(node.getLine(), "VALUES_REQUIRED", "ENUM Type must include values")
+    END IF
+
+    RETURN schema_node
+END FUNCTION
+
+# Reappearance of an already defined name: it MUST be a "@Node Name" reference, and a
+# reference may override the cardinality but may redefine neither the ENUM values nor
+# the children (§6.4, §14.12 and §14.13).
+PROCEDURE validateReference(node: InlineNode, cl: ChildLine)
+
+    type: STRING = cl.getType()
+
+    # A reappearance without "@" would redefine an existing node: error.
+    IF type IS NULL OR NOT type.startsWith("@")
+        THROW ValidationException(node.getLine(), "REFERENCE_REQUIRED",
+            "Multiple node reference must start with @: " + node.getName())
+    END IF
+
+    reference: STRING = StringUtils.trim(type.substring(1))
+
+    # Reference and explicit type on the same line (§14.13)
+    explicit_type: STRING = referenceType(reference, node.getCanonicalName())
+    IF explicit_type IS NOT NULL
+        THROW ValidationException(node.getLine(), "REFERENCE_WITH_TYPE_NOT_ALLOWED",
+            "Reference '@" + node.getName() + "' can not declare a type: " + explicit_type)
+    END IF
+
+    # The name of the reference MUST match (canonically) the one of the line (§14.12)
+    IF normalizeChars(reference) != node.getCanonicalName()
+        THROW ValidationException(node.getLine(), "REFERENCE_NAME_NOT_VALID",
+            "Reference must be '@" + node.getName() + "', not '" + reference + "'")
+    END IF
+
+    IF cl.getValues() IS NOT NULL
+        THROW ValidationException(node.getLine(), "VALUES_NOT_ALLOWED_IN_REFERENCE",
+            "Reference '@" + node.getName() + "' can not redefine ENUM values")
+    END IF
+
+    IF node.getChildren().size() > 0
+        THROW ValidationException(node.getLine(), "CHILDREN_NOT_ALLOWED_IN_REFERENCE",
+            "Reference '@" + node.getName() + "' can not redefine children")
+    END IF
+END PROCEDURE
+
+# Declares every direct child of a definition as a Child (with its cardinality) and
+# recurses into each one as a definition/reference of its own.
+PROCEDURE addChildren(schema: Schema, schema_node: NodeDefinition, node: InlineNode)
+
     children: Node[] = node.getChildren()
 
     # Template error §14.9: children under an effective type that does not admit them
@@ -217,17 +244,16 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
             THROW ValidationException(child.getLine(), "STRUCTURE_LINE_NOT_VALID",
                 "Template Structure lines must use ':'")
         END IF
-        cl = ChildLineParser.parse(child.getValue(), child.getLine())
+        child_cl: ChildLine = ChildLineParser.parse(child.getValue(), child.getLine())
 
-        child_name: STRING      = child.getName()
         child_namespace: STRING = child.getNamespace()
         IF isEmpty(child_namespace)
             child_namespace = schema.getNamespace()
         END IF
 
         # The child is declared as a Child (with its cardinality) in the current definition
-        sch_child: ChildDefinition = ChildDefinition(child_name, child_namespace,
-            cl.getMin(), cl.getMax(), child.getLine())
+        sch_child: ChildDefinition = ChildDefinition(child.getName(), child_namespace,
+            child_cl.getMin(), child_cl.getMax(), child.getLine())
         schema_node.addChildDefinition(sch_child)
 
         # And processed recursively as a definition/reference

@@ -28,12 +28,16 @@ FUNCTION transformNodeToSchema(node: Node): Schema
     END IF
     root: InlineNode = inline(node)
 
-    # The target namespace (the inline value of the root) MUST be empty or syntactically
-    # valid: the same format rule as core/validations.txt (NAMESPACE_FORMAT), reported
-    # here with the schema code instead of INVALID_NAMESPACE. Emptiness itself is
-    # checked by the provider (SCHEMA_NAMESPACE_EMPTY), not here.
-    target: STRING = root.getValue()
-    IF NOT isEmpty(target) AND NOT NAMESPACE_FORMAT.matches(target.toLowerCase())
+    # The target namespace (the inline value of the root) MUST be declared and
+    # syntactically valid: the same format rule as core/validations.txt
+    # (NAMESPACE_FORMAT), reported here with the schema codes instead of
+    # INVALID_NAMESPACE. Checking it here covers every loading path (providers,
+    # unified file loaders, discovery).
+    target: STRING = lowerCase(root.getValue())
+    IF isEmpty(target)
+        THROW ValidationException(root.getLine(), "SCHEMA_NAMESPACE_EMPTY", "Schema namespace is empty")
+    END IF
+    IF NOT NAMESPACE_FORMAT.matches(target)
         THROW ValidationException(root.getLine(), "SCHEMA_ROOT_NOT_VALID",
             "Schema namespace not valid: " + target)
     END IF
@@ -113,8 +117,9 @@ FUNCTION createNodeDefinition(node: Node, namespace: STRING): NodeDefinition
     END IF
 
     # Allowed values: only valid for the ENUM type
-    values: Node[] = n.getChildren("values")
-    IF values.size() > 0
+    values_nodes: Node[] = n.getChildren("values")   # the "Values:" containers
+    value_entries: Node[] = []                       # the "Value:" entries inside
+    IF values_nodes.size() > 0
 
         IF type != "ENUM"
             THROW ValidationException(n.getLine(), "VALUES_NOT_ALLOWED_FOR_TYPE",
@@ -122,15 +127,14 @@ FUNCTION createNodeDefinition(node: Node, namespace: STRING): NodeDefinition
         END IF
 
         # A Node holds at most one "Values:" node; the error points at the second one
-        IF values.size() > 1
-            THROW ValidationException(values[1].getLine(), "VALUES_DUPLICATED",
-                "Unexpected number of values: " + values.size())
+        IF values_nodes.size() > 1
+            THROW ValidationException(values_nodes[1].getLine(), "VALUES_DUPLICATED",
+                "Unexpected number of values: " + values_nodes.size())
         END IF
 
         # Collect every "Value:" inside the "Values:" node
-        values_node: Node = values[0]
-        values = inline(values_node).getChildren("value")
-        FOREACH value IN values
+        value_entries = inline(values_nodes[0]).getChildren("value")
+        FOREACH value IN value_entries
             # An empty Value: is a schema error (§7.2, condition 14): an enumeration whose
             # only valid value is the empty string makes no sense
             IF isEmpty(value.getText())
@@ -140,8 +144,8 @@ FUNCTION createNodeDefinition(node: Node, namespace: STRING): NodeDefinition
         END FOREACH
     END IF
 
-    # An ENUM MUST declare at least one value
-    IF type == "ENUM" AND values.size() == 0
+    # An ENUM MUST declare at least one value (a "Values:" with no entries included)
+    IF type == "ENUM" AND value_entries.size() == 0
         THROW ValidationException(n.getLine(), "VALUES_REQUIRED", "ENUM Type must include values")
     END IF
 

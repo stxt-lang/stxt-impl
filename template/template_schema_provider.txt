@@ -18,30 +18,12 @@ CLASS TemplateSchemaProviderMemory EXTENDS SchemaProviderMemory
     END CONSTRUCTOR
 
     # Parses a template document, validates it against the template meta-schema and
-    # registers the schema it produces.
+    # registers the schema it produces. The whole pipeline is the shared one of
+    # schema/definition_compiler.txt; an empty target namespace is rejected by
+    # TemplateParser (TEMPLATE_NAMESPACE_EMPTY).
     PROCEDURE addTemplate(template: STRING)
-        parser: Parser = Parser()
-        nodes: Node[] = parser.parse(template)
-
-        IF nodes.length() != 1
-            THROW ValidationException(0, "TEMPLATE_MULTIPLE_ROOTS", "There are " + nodes.length() + ", and expected is 1")
-        END IF
-
-        node: Node = nodes[0]
-
-        # The document MUST validate against the meta-template (@stxt.template)
-        validator: SchemaValidator = SchemaValidator(MetaTemplateSchemaProvider(), true)
-        errors: ValidationException[] = validator.validate(node)
-        IF errors.length() > 0
-            THROW errors[0]
-        END IF
-
-        # Compile the template to its equivalent Schema
-        schema: Schema = TemplateParser.transformNodeToSchema(node)
-
-        IF isEmpty(schema.getNamespace())
-            THROW ValidationException(node.getLine(), "TEMPLATE_NAMESPACE_EMPTY", "Template namespace is empty")
-        END IF
+        schema: Schema = compileDocument(template, MetaTemplateSchemaProvider(),
+            TemplateParser.transformNodeToSchema, "TEMPLATE_MULTIPLE_ROOTS")
 
         schemas.put(schema.getNamespace(), schema)
     END PROCEDURE
@@ -69,18 +51,22 @@ CLASS MetaTemplateSchemaProvider IMPLEMENTS SchemaProvider
     #               Structure: (1) BLOCK
     CONSTANT META_TEXT: STRING
 
-    FIELD meta: Schema
+    # Compiled ONCE per process and shared between instances, exactly like the meta
+    # field of SchemaProviderMeta (see schema/schema_provider.txt).
+    SHARED meta: Schema = NULL
 
     CONSTRUCTOR ()
-        parser: Parser = Parser()
-        nodes: Node[] = parser.parse(META_TEXT)
+        IF meta IS NULL
+            parser: Parser = Parser()
+            nodes: Node[] = parser.parse(META_TEXT)
 
-        IF nodes.length() != 1
-            THROW ValidationException(0, "META_SCHEMA_INVALID", "Meta schema must produce exactly 1 document, got " + nodes.length())
+            IF nodes.length() != 1
+                THROW ValidationException(ParseException.NO_LINE, "META_SCHEMA_INVALID", "Meta schema must produce exactly 1 document, got " + nodes.length())
+            END IF
+
+            # The meta-template itself is compiled with the TemplateParser
+            meta = TemplateParser.transformNodeToSchema(nodes[0])
         END IF
-
-        # The meta-template itself is compiled with the TemplateParser
-        meta = TemplateParser.transformNodeToSchema(nodes[0])
     END CONSTRUCTOR
 
     # Serves the meta-template; NULL for any other namespace (SchemaProvider contract).

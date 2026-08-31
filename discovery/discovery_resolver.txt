@@ -233,10 +233,10 @@ CLASS DiscoveryResolver
         schema: Schema = NULL
 
         TRY
-            IF namespace == "@stxt.template"
-                schema = compileTemplate(node)
+            IF namespace == Schema.TEMPLATE_NAMESPACE
+                schema = compileNode(node, template_meta, TemplateParser.transformNodeToSchema)
             ELSE IF namespace == Schema.SCHEMA_NAMESPACE
-                schema = compileSchema(node)
+                schema = compileNode(node, schema_meta, SchemaParser.transformNodeToSchema)
             ELSE
                 level.errors.push(DiscoveryError(DiscoveryError.NOT_A_DEFINITION, file,
                     "Root node belongs to '" + namespace + "', not to @stxt.schema or @stxt.template: " + file))
@@ -273,25 +273,9 @@ CLASS DiscoveryResolver
         level.definitions.put(key, definition)
     END PROCEDURE
 
-    # Validates a schema root node against the meta-schema and transforms it into a
-    # Schema, throwing the first validation error found.
-    FUNCTION compileSchema(node: Node): Schema
-        errors: ValidationException[] = SchemaValidator(schema_meta, true).validate(node)
-        IF errors.length() > 0
-            THROW errors[0]
-        END IF
-        RETURN SchemaParser.transformNodeToSchema(node)
-    END FUNCTION
-
-    # Validates a template root node against the meta-template and compiles it into a
-    # Schema, throwing the first validation error found.
-    FUNCTION compileTemplate(node: Node): Schema
-        errors: ValidationException[] = SchemaValidator(template_meta, true).validate(node)
-        IF errors.length() > 0
-            THROW errors[0]
-        END IF
-        RETURN TemplateParser.transformNodeToSchema(node)
-    END FUNCTION
+    # Compilation itself is the shared pipeline of schema/definition_compiler.txt
+    # (compileNode): validate against the meta of the kind, throw the first error,
+    # transform.
 
 END CLASS
 

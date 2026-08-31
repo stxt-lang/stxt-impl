@@ -58,7 +58,8 @@ CLASS NodeDefinition
 
         # Two equivalent Child entries (same canonical name + namespace) are an error
         IF children.containsKey(qname)
-            THROW ValidationException(0, "CHILD_DUPLICATED", "Exists a previous node definition with: " + qname)
+            THROW ValidationException(ParseException.NO_LINE, "CHILD_DUPLICATED",
+                "A child declaration with the same name already exists: " + qname)
         END IF
 
         children.put(qname, child_definition)
@@ -71,7 +72,7 @@ CLASS NodeDefinition
         value = trimToNotNull(value)
 
         IF values.contains(value)
-            THROW ValidationException(line, "VALUE_DUPLICATED", "The values " + value + " is duplicated")
+            THROW ValidationException(line, "VALUE_DUPLICATED", "The value " + value + " is duplicated")
         END IF
 
         values.push(value)
