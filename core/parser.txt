@@ -135,22 +135,19 @@ CLASS Parser
                 RETURN
             END IF
 
-            TRY
-                processLine(line, line_number, stack, result)
-            CATCH le: LimitException
-                emitError(le, result)
-                RETURN
-            END TRY
+            IF NOT processLine(line, line_number, stack, result)
+                RETURN    # a limit aborted the parse; its error is already emitted
+            END IF
         END FOREACH
 
         # Close every node still open at EOF
         closeToLevel(stack, 0, result)
     END PROCEDURE
 
-    # Processes one source line. Errors of this line are collected into the result;
-    # the traversal continues with the next line. A LimitException escapes instead:
-    # parseLines() aborts on it.
-    PROCEDURE processLine(line_string, line_number, stack, result)
+    # Processes one source line. Errors of this line are collected into the result and
+    # the traversal continues with the next line: returns true to keep going, false when
+    # a limit aborted the parse (its error is already emitted) — parseLines() stops on it.
+    FUNCTION processLine(line_string, line_number, stack, result): BOOLEAN
         TRY
             last_node: Node = NULL
             IF NOT stack.isEmpty()
@@ -184,7 +181,7 @@ CLASS Parser
                 FOREACH observer IN observers
                     observer.onComment(line_number, line_string)
                 END FOREACH
-                RETURN
+                RETURN true
             END IF
 
             # Text line of an open BLOCK node: append it instead of creating a node
@@ -195,12 +192,12 @@ CLASS Parser
                 FOREACH observer IN observers
                     observer.onTextLine(text_node, line_number, line_string, line_indent)
                 END FOREACH
-                RETURN
+                RETURN true
             END IF
 
             # Empty lines outside a block are ignored
             IF line_indent.isEmpty()
-                RETURN
+                RETURN true
             END IF
 
             current_level = line_indent.indent_level
@@ -209,8 +206,9 @@ CLASS Parser
             # Comment and block text lines returned above; with the consecutive-level
             # rule this triggers exactly when the first node at level max_nesting opens.
             IF max_nesting != -1 AND current_level >= max_nesting
-                THROW LimitException(line_number, "LIMIT_NESTING_EXCEEDED",
-                    "Nesting deeper than " + max_nesting + " levels")
+                emitError(LimitException(line_number, "LIMIT_NESTING_EXCEEDED",
+                    "Nesting deeper than " + max_nesting + " levels"), result)
+                RETURN false
             END IF
 
             # Close nodes down to the current level (finalizes them)
@@ -234,15 +232,15 @@ CLASS Parser
 
             stack.push(node)
 
-        CATCH le: LimitException
-            RETHROW le
         CATCH pe: ParseException
             emitError(pe, result)
         CATCH e
             # Unexpected platform error: collected as a ParseException
             emitError(ParseException(line_number, "UNEXPECTED_ERROR", e.getMessage()), result)
         END TRY
-    END PROCEDURE
+
+        RETURN true
+    END FUNCTION
 
     # Closes every node deeper than target_level: runs the validators over it and notifies
     # the observers. (The node was attached to its parent when it was created.) When the
