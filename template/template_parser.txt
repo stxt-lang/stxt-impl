@@ -99,7 +99,7 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
     # no type, no ENUM values and no children (§6.4, §10 and §14.15).
     IF namespace != schema.getNamespace()
         type: STRING = cl.getType()
-        IF type IS NOT NULL AND NOT type.trim().isEmpty()
+        IF type IS NOT NULL AND NOT StringUtils.trim(type).isEmpty()
             THROW ValidationException(node.getLine(), "TYPE_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE",
                 "Not allowed type definition in external namespaces")
         END IF
@@ -171,7 +171,7 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
                 "Multiple node reference must start with @: " + node.getName())
         END IF
 
-        reference: STRING = type.substring(1).trim()
+        reference: STRING = StringUtils.trim(type.substring(1))
 
         # Reference and explicit type on the same line (§14.13)
         explicit_type: STRING = referenceType(reference, node.getCanonicalName())
@@ -247,7 +247,7 @@ FUNCTION referenceType(reference: STRING, normalized_name: STRING): STRING
         RETURN NULL
     END IF
 
-    candidate: STRING = reference.substring(cut + 1).trim()
+    candidate: STRING = StringUtils.trim(reference.substring(cut + 1))
     rest: STRING      = reference.substring(0, cut)
 
     IF TypeRegistry.get(candidate) IS NOT NULL AND normalizeChars(rest) == normalized_name

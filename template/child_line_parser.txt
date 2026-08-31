@@ -7,18 +7,21 @@
 # This function does NOT know the name or the namespace of the node (the core parser
 # resolves those from the node itself); it only interprets cardinality, type and values.
 
-# Pattern with three optional groups: count, type, values.
+# Pattern with three optional groups: count, type, values. Whitespace here is U+0020/U+0009
+# only ([ \t]), like everywhere else in the language (STXT-SPEC §4 and TEMPLATE-SPEC §6.2/§9):
+# \s and the platform trim would also match non-ASCII whitespace and are deliberately avoided,
+# so every port accepts and rejects exactly the same lines.
 CONSTANT CHILD_LINE_PATTERN: REGEX =
-    "^\\s*" +
-    "(?:\\(\\s*(?<count>[^()\\s][^)]*?)\\s*\\)\\s*)?" +     # (cardinality)
-    "(?<type>[^()\\[\\]]*)?" +                              # type or @reference
-    "(?:\\[\\s*(?<values>[^]]*?)\\s*\\]\\s*)?" +            # [ENUM values]
-    "\\s*$"
+    "^[ \\t]*" +
+    "(?:\\([ \\t]*(?<count>[^() \\t][^)]*?)[ \\t]*\\)[ \\t]*)?" +   # (cardinality)
+    "(?<type>[^()\\[\\]]*)?" +                                      # type or @reference
+    "(?:\\[[ \\t]*(?<values>[^]]*?)[ \\t]*\\][ \\t]*)?" +          # [ENUM values]
+    "[ \\t]*$"
 
 FUNCTION parse(raw_line: STRING, line_number: INTEGER): ChildLine
 
     # Line with no RuleSpec: everything defaults
-    IF raw_line.trim().isEmpty()
+    IF StringUtils.trim(raw_line).isEmpty()
         RETURN ChildLine(NULL, NULL, NULL, NULL)
     END IF
 
@@ -30,7 +33,7 @@ FUNCTION parse(raw_line: STRING, line_number: INTEGER): ChildLine
     # --- Type (or @Name reference) ---
     type: STRING = matcher.group("type")
     IF type IS NOT NULL
-        type = type.trim()
+        type = StringUtils.trim(type)
     END IF
     IF type IS NULL OR type.isEmpty()
         type = NULL
@@ -41,7 +44,7 @@ FUNCTION parse(raw_line: STRING, line_number: INTEGER): ChildLine
     IF count IS NULL
         count = ""
     END IF
-    count = count.trim()
+    count = StringUtils.trim(count)
 
     min: INTEGER = NULL
     max: INTEGER = NULL
@@ -73,8 +76,8 @@ FUNCTION parse(raw_line: STRING, line_number: INTEGER): ChildLine
             THROW ValidationException(line_number, "CARDINALITY_NOT_VALID", "Invalid count " + count + " in line: " + raw_line)
         END IF
 
-        min = parseCount(parts[0].trim(), count, raw_line, line_number)
-        max = parseCount(parts[1].trim(), count, raw_line, line_number)
+        min = parseCount(StringUtils.trim(parts[0]), count, raw_line, line_number)
+        max = parseCount(StringUtils.trim(parts[1]), count, raw_line, line_number)
 
         # Invalid cardinality when min > max (§7.1)
         IF min > max
@@ -105,7 +108,7 @@ FUNCTION parse(raw_line: STRING, line_number: INTEGER): ChildLine
         # JavaScript and Python split do; in Java that is split(",", -1).
         parts: STRING[] = split(values_str, ",")
         FOREACH part IN parts
-            part = part.trim()
+            part = StringUtils.trim(part)
             # An empty item ("[a, , b]", "[a, b,]") is an error, as an empty Value: is in a
             # schema (STXT-TEMPLATE-SPEC §14.14). Only the whole list may be empty ("[]"),
             # which the template parser reports as VALUES_REQUIRED.
