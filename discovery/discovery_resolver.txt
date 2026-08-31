@@ -23,6 +23,11 @@ CONSTANT STXT_EXTENSION: STRING = ".stxt"
 # systems), as allowed by §4.1.
 CONSTANT DEFAULT_MAX_ASCENT: INTEGER = 32
 
+# Default maximum depth of the recursive descent inside a resolution directory. A
+# safeguard against symlink loops and pathological trees, analogous to the ascent limit
+# (§3, §10); the descent stops at this depth instead of recursing without bound.
+CONSTANT DEFAULT_MAX_DESCENT: INTEGER = 32
+
 CLASS DiscoveryResolver
 
     FIELD fs: DiscoveryFileSystem
@@ -150,14 +155,36 @@ CLASS DiscoveryResolver
 
     # Collects every file under a directory, recursively, SORTED BY PATH so that
     # results and error messages do not depend on the listing order of the file system.
+    # The descent is bounded by DEFAULT_MAX_DESCENT and tolerant of listing failures
+    # (§3, §10): a subdirectory that reaches the depth limit or cannot be listed simply
+    # contributes no files, never an exception. Together with adapters that do not follow
+    # directory symlinks, this stops symlink loops and pathological trees from turning
+    # resolution into unbounded recursion.
     FUNCTION collectFiles(dir: STRING): STRING[]
+        RETURN collectFilesAt(dir, 0)
+    END FUNCTION
+
+    FUNCTION collectFilesAt(dir: STRING, depth: INTEGER): STRING[]
 
         files: STRING[] = []
-        entries: DiscoveryEntry[] = sortByPath(fs.listDirectory(dir))
+
+        # Safeguard against symlink loops and pathological trees (§10): stop descending
+        IF depth >= DEFAULT_MAX_DESCENT
+            RETURN files
+        END IF
+
+        entries: DiscoveryEntry[] = NULL
+        TRY
+            entries = sortByPath(fs.listDirectory(dir))
+        CATCH e
+            # A directory that cannot be listed contributes no files (§3); it does not
+            # stop the resolution of the rest of the level
+            RETURN files
+        END TRY
 
         FOREACH entry IN entries
             IF entry.is_directory
-                files.pushAll(collectFiles(entry.path))
+                files.pushAll(collectFilesAt(entry.path, depth + 1))
             ELSE
                 files.push(entry.path)
             END IF

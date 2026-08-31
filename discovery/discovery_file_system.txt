@@ -8,6 +8,16 @@
 #
 # Platform note: hosts with asynchronous I/O (e.g. JavaScript) implement these
 # operations as async; the resolver logic is the same either way.
+#
+# Symlink note (STXT-DISCOVERY-SPEC §3, §10): an implementation over a real file system
+# SHOULD NOT follow directory symbolic links, so the resolver's recursive descent cannot
+# be lured into a symlink loop or into an unrelated tree. The recommended way is to OMIT
+# directory symlinks from the listing returned by listDirectory (equivalently, resolve
+# is_directory without following links so a symlinked directory is not recursed into).
+# The descent is additionally bounded by DEFAULT_MAX_DESCENT in the resolver, independent
+# of the adapter, and listDirectory failures are tolerated per-directory (collectFilesAt),
+# so neither a loop nor an unreadable directory can turn resolution into unbounded
+# recursion or an escaping exception.
 
 # An entry of a directory listing, as returned by listDirectory().
 CLASS DiscoveryEntry
