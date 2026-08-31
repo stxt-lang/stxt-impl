@@ -10,14 +10,18 @@
 # operations as async; the resolver logic is the same either way.
 #
 # Symlink note (STXT-DISCOVERY-SPEC §3, §10): an implementation over a real file system
-# SHOULD NOT follow directory symbolic links, so the resolver's recursive descent cannot
-# be lured into a symlink loop or into an unrelated tree. The recommended way is to OMIT
-# directory symlinks from the listing returned by listDirectory (equivalently, resolve
-# is_directory without following links so a symlinked directory is not recursed into).
-# The descent is additionally bounded by DEFAULT_MAX_DESCENT in the resolver, independent
-# of the adapter, and listDirectory failures are tolerated per-directory (collectFilesAt),
-# so neither a loop nor an unreadable directory can turn resolution into unbounded
-# recursion or an escaping exception.
+# SHOULD NOT follow symbolic links at all. The recommended way is to OMIT every symlink
+# entry from the listing returned by listDirectory, both directory links and file links:
+#  - a directory link, if descended into, could lure the recursive descent into a symlink
+#    loop or into an unrelated tree;
+#  - a file link, if loaded as a definition, would read a file from outside the .stxt/
+#    (the levels of the chain include directories the validating party does not control),
+#    which could leak that file's content through a resolution error.
+# So a resolution directory loads only the real files it contains. The descent is also
+# bounded by DEFAULT_MAX_DESCENT in the resolver, independent of the adapter, and
+# listDirectory failures are tolerated per-directory (collectFilesAt), so neither a loop
+# nor an unreadable directory can turn resolution into unbounded recursion or an escaping
+# exception.
 
 # An entry of a directory listing, as returned by listDirectory().
 CLASS DiscoveryEntry
