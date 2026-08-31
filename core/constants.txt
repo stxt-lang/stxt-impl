@@ -10,6 +10,12 @@ SEP_TEXT_NODE		= ">>"
 DEFAULT_ENCODING	= "UTF-8"
 EMPTY_NAMESPACE		= ""
 
+# Cardinality bound (STXT-SCHEMA-SPEC §10, STXT-TEMPLATE-SPEC §7.1): Min/Max in a schema
+# and the numbers of a template cardinality MUST NOT exceed 2^32 - 1; a greater value is
+# CARDINALITY_NOT_VALID. Platform-independent: ports parse the number into a type that
+# holds at least this value (long in Java, Number in JS, int in Python).
+MAX_CARDINALITY     = 4294967295
+
 # Parser limits (STXT-SPEC §11.2). The spec RECOMMENDS applying limits and these are its
 # recommended defaults; the official ports enable them. A parser that applies limits MUST
 # let the program configure them, and -1 disables the corresponding limit. Lengths are

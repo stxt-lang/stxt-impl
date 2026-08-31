@@ -355,18 +355,23 @@ CLASS UUID EXTENDS RegexValue
     END FUNCTION
 END CLASS
 
-# EMAIL: valid e-mail address, in either of the two forms of STXT-SCHEMA-SPEC 9.4:
+# EMAIL: valid e-mail address, per the normative grammar of STXT-SCHEMA-SPEC 9.4, in
+# either of its two forms:
 #   - the bare address:              user@domain.tld
 #   - a display name plus <address>: Joan Costa <joan@example.com>
-# The display name is any non-empty text without '<' or '>' (quotes are not interpreted),
-# and the space before '<' is optional. The address is checked the same way in both forms;
-# '<'/'>' without a name, unbalanced or followed by anything are rejected.
+# The display name is any non-empty text without '<' or '>' (quotes are not interpreted)
+# whose last character is not a blank, and the blank before '<' is optional. The address is
+# checked the same way in both forms; '<'/'>' without a name, unbalanced or followed by
+# anything are rejected. Limits (the practical RFC 5321 ones): local part 1-64, whole
+# address at most 254, TLD 2-63 ASCII letters. ASCII only (no EAI); dots are permissive
+# (the full RFC 5322 dot-atom is not replicated). Blanks are the STXT ones (STXT-SPEC §4):
+# U+0020 and U+0009 only — not the platform's \s.
 CLASS EMAIL EXTENDS RegexValue
     # Address (local@domain, with length limits) as it reads at the end of the value ...
-    FIELD ADDRESS: STRING = "(?=.{1,256}$)(?=.{1,64}@.{1,255}$)(?=.{1,64}@.{1,63}\\..{1,63}$)[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
+    FIELD ADDRESS: STRING = "(?=.{1,254}$)(?=[^@]{1,64}@)[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,63}"
     # ... and the same address as it reads between '<' and '>' (the lookaheads stop at '>').
-    FIELD BRACKETED: STRING = "(?=[^>]{1,256}>$)(?=[^>]{1,64}@[^>]{1,255}>$)(?=[^>]{1,64}@[^>]{1,63}\\.[^>]{1,63}>$)[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
-    FIELD P_EMAIL: REGEX = "^(?:[^<>]*[^<>\\s]\\s*<" + BRACKETED + ">|" + ADDRESS + ")$"
+    FIELD BRACKETED: STRING = "(?=[^>]{1,254}>$)(?=[^@>]{1,64}@)[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,63}"
+    FIELD P_EMAIL: REGEX = "^(?:[^<>]*[^<> \\t][ \\t]*<" + BRACKETED + ">|" + ADDRESS + ")$"
     CONSTRUCTOR ()
         super(P_EMAIL, "Invalid email")
     END CONSTRUCTOR

@@ -130,10 +130,16 @@ FUNCTION parse(raw_line: STRING, line_number: INTEGER): ChildLine
     RETURN ChildLine(type, min, max, values)
 END FUNCTION
 
-# num, min and max must be NON-NEGATIVE integers, with no trailing text (§7.1).
+# num, min and max must be NON-NEGATIVE integers, with no trailing text, and must not
+# exceed MAX_CARDINALITY = 4294967295 = 2^32 - 1 (§7.1) — the same bound as Min/Max in a
+# schema. See getInteger in schema/schema_parser.txt for the overflow note.
 FUNCTION parseCount(num: STRING, count: STRING, raw_line: STRING, line_number: INTEGER): INTEGER
     IF NOT isNatural(num)
         THROW ValidationException(line_number, "CARDINALITY_NOT_VALID", "Invalid count " + count + " in line: " + raw_line)
     END IF
-    RETURN parseInteger(num)
+    value: INTEGER = parseInteger(num)
+    IF value > MAX_CARDINALITY
+        THROW ValidationException(line_number, "CARDINALITY_NOT_VALID", "Invalid count " + count + " in line: " + raw_line)
+    END IF
+    RETURN value
 END FUNCTION

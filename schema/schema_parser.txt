@@ -187,5 +187,15 @@ FUNCTION getInteger(node: InlineNode, child_name: STRING): INTEGER
         THROW ValidationException(node.getLine(), "CARDINALITY_NOT_VALID", "Integer not valid: " + n.getText())
     END IF
 
-    RETURN parseInteger(n.getText())
+    # Cardinalities are bounded to MAX_CARDINALITY = 4294967295 = 2^32 - 1
+    # (STXT-SCHEMA-SPEC §10): a greater value is CARDINALITY_NOT_VALID. The parse must use
+    # a type that holds at least that value (long in Java, Number in JS, int in Python); a
+    # platform whose parse overflows on a bigger literal reports this same error, because
+    # overflowing implies exceeding the bound.
+    value: INTEGER = parseInteger(n.getText())
+    IF value > MAX_CARDINALITY
+        THROW ValidationException(node.getLine(), "CARDINALITY_NOT_VALID", "Cardinality above 4294967295: " + n.getText())
+    END IF
+
+    RETURN value
 END FUNCTION
