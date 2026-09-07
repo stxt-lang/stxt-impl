@@ -7,6 +7,12 @@
 # content. A port MUST NOT use its platform's generic trim/strip/isWhitespace, which are
 # broader (JS String.trim and Python str.strip remove all Unicode space; Java String.trim
 # removes every code point <= U+0020). Conformance pair: conformance/tree/nbsp.
+#
+# LINEAR TIME. Every helper here runs on every source line, so each MUST be linear in the
+# length of its input: scan by index, never with an unanchored pattern such as [ \t]+$
+# (on "a" + 9 000 blanks + "b" the engine retries the whole run from every position:
+# quadratic, the shape of CVE-2020-7753, and a valid 1 MB document took 50 s in the JS
+# port until 2026-09-06). A leading anchor (^[ \t]+) or a global replace of runs is fine.
 BLANKS = " " + TAB
 
 # Removes blanks (only SPACE and TAB) at both ends of str. Returns "" if str is NULL.
@@ -42,7 +48,12 @@ END FUNCTION
 FUNCTION normalizeChars (str)
 END FUNCTION
 
-# Lower case (root locale / locale independent). Returns "" if str is NULL. Used for namespaces.
+# ASCII lower case: maps A-Z to a-z and leaves every other character as it is. Returns ""
+# if str is NULL. Used for namespaces, which are ASCII by definition (STXT-SPEC §7.1), and
+# it MUST NOT be the platform's Unicode lower case: that one maps U+212A KELVIN SIGN to
+# "k", so "(\u212Aelvin.x)" became the valid namespace "kelvin.x" in every port until
+# 2026-09-06 — the homograph §7.1 exists to rule out. With an ASCII map the sign reaches
+# validateNamespaceFormat unchanged and is rejected.
 FUNCTION lowerCase (str)
 END FUNCTION
 

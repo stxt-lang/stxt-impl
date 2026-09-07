@@ -57,6 +57,13 @@ CLASS DiscoveryResolver
     # with no file-system location (standard input, an unsaved buffer), whose chain
     # starts at the user level. Returns the EXISTING resolution directories, highest
     # precedence first.
+    #
+    # Nothing thrown by the adapter escapes resolve() (§8: errors accumulate). The
+    # fs.isDirectory calls below and in existingUnique are guarded like listDirectory
+    # and readFile: an adapter that throws there is treated as "not a directory". And
+    # max_ascent MUST be a finite integer >= 0: a port rejects anything else when the
+    # resolver is built (its platform's argument error) rather than letting an infinite
+    # or NaN value turn a cyclic parentOf into an endless ascent.
     FUNCTION resolveChain(document_dir: STRING): STRING[]
 
         # STXT_PATH, when defined, completely replaces the chain (§6)
@@ -161,10 +168,10 @@ CLASS DiscoveryResolver
     # directory symlinks, this stops symlink loops and pathological trees from turning
     # resolution into unbounded recursion.
     FUNCTION collectFiles(dir: STRING): STRING[]
-        RETURN collectFilesAt(dir, 0)
+        RETURN collectFilesAt(dir, 0, SET())
     END FUNCTION
 
-    FUNCTION collectFilesAt(dir: STRING, depth: INTEGER): STRING[]
+    FUNCTION collectFilesAt(dir: STRING, depth: INTEGER, visited: SET<STRING>): STRING[]
 
         files: STRING[] = []
 
@@ -172,6 +179,14 @@ CLASS DiscoveryResolver
         IF depth >= DEFAULT_MAX_DESCENT
             RETURN files
         END IF
+
+        # A directory already visited in this level (a cycle the adapter did not cut, or
+        # two entries for one directory) is not descended again. The depth limit alone
+        # bounds the depth, not the work: a cycle of breadth 2 would be entered 2^32 times.
+        IF visited.contains(dir)
+            RETURN files
+        END IF
+        visited.add(dir)
 
         entries: DiscoveryEntry[] = NULL
         TRY
@@ -184,7 +199,7 @@ CLASS DiscoveryResolver
 
         FOREACH entry IN entries
             IF entry.is_directory
-                files.pushAll(collectFilesAt(entry.path, depth + 1))
+                files.pushAll(collectFilesAt(entry.path, depth + 1, visited))
             ELSE
                 files.push(entry.path)
             END IF

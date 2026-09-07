@@ -180,8 +180,13 @@ CLASS ENUM IMPLEMENTS Type
 
         value: STRING = n.getText()
         IF NOT ns_node.isAllowedValue(value)
+            # The message deliberately does NOT list the allowed values: every invalid node
+            # would carry a copy of the whole list, and a large ENUM (which may come from a
+            # .stxt/ the author of the document does not control) times a document with
+            # many invalid nodes multiplies memory — 100 000 values × 5 000 nodes gave 4 GB
+            # of messages. The list stays available through NodeDefinition.getValues().
             THROW ValidationException(n.getLine(), "INVALID_VALUE",
-                "The value '" + value + "' not allowed. Only: " + ns_node.getValues())
+                "The value '" + value + "' is not one of the allowed values of " + ns_node.getName())
         END IF
     END PROCEDURE
 END CLASS

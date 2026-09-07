@@ -180,4 +180,5 @@ END CLASS
 
 # In-memory API (RuntimeException, not conformance surface)
 #   AMBIGUOUS_CHILD, NODE_ALREADY_ATTACHED, NODE_CYCLE, TYPE_DUPLICATED (was DUPLICATED_TYPE)
+#   LINE_BREAK_NOT_ALLOWED (since 2026-09-06: a value or a text line set through the API contains LF)
 # Internal: META_SCHEMA_INVALID (META_SCHEMA_NOT_AVAILABLE was removed on 2026-08-31: it guarded a state the constructors make unreachable)

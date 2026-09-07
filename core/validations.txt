@@ -3,7 +3,34 @@
 #   * It may optionally start with '@' (reserved namespaces).
 #   * Two or more domain-style labels separated by '.': label := [a-z0-9]+
 #   * Valid examples: "a.b", "com.example.docs", "@stxt.schema".
-CONSTANT NAMESPACE_FORMAT: REGEX = "^@?[a-z0-9]+(\\.[a-z0-9]+)+$"
+#
+# Checked by a hand-written scan, NOT by the regex ^@?[a-z0-9]+(\.[a-z0-9]+)+$ every port
+# used until 2026-09-06: a regex engine that implements a repeated group by recursion
+# (java.util.regex) overflowed the stack with ~2 000 labels, a 4 000-character line well
+# within the line limit, and a stack overflow is not an exception the parser can turn into
+# an error. The scan is linear and identical in every port.
+FUNCTION isValidNamespaceFormat(namespace: STRING): BOOLEAN
+    n: INTEGER = namespace.length()
+    i: INTEGER = (n > 0 AND namespace[0] == "@") ? 1 : 0
+    labels: INTEGER = 0
+    LOOP
+        start: INTEGER = i
+        WHILE i < n AND isLabelChar(namespace[i])       # [a-z0-9], ASCII only
+            i = i + 1
+        END WHILE
+        IF i == start                                    # empty label: "", "@", "a.", ".a", "a..b"
+            RETURN false
+        END IF
+        labels = labels + 1
+        IF i == n
+            RETURN labels >= 2
+        END IF
+        IF namespace[i] != "."
+            RETURN false
+        END IF
+        i = i + 1
+    END LOOP
+END FUNCTION
 
 # STXT-SPEC §4.2 / §4.3: names contain Unicode letters, decimal digits and combining
 # marks (Mn, Mc: Devanagari vowel signs, accents with no precomposed form...) plus the
@@ -43,7 +70,7 @@ PROCEDURE validateNamespaceFormat(namespace: STRING, line_number: INTEGER)
         RETURN
     END IF
 
-    IF NOT NAMESPACE_FORMAT.matches(namespace)
+    IF NOT isValidNamespaceFormat(namespace)
         THROW ParseException(line_number, "INVALID_NAMESPACE", "Namespace not valid: " + namespace)
     END IF
 

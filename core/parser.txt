@@ -35,7 +35,9 @@
 # emitted (collected and/or notified) and nothing else is processed or notified — the
 # nodes still open are not closed. Every port exposes the three limits with its own
 # idiom (an options object, setters, keyword arguments), keeping these names
-# recognizable: max_nesting, max_line_length, max_input_size.
+# recognizable: max_nesting, max_line_length, max_input_size. Each limit MUST be an
+# integer >= 0 or -1; any other value is rejected when it is set (the platform's argument
+# error), so that NaN cannot disable a limit silently nor -2 reject every line.
 
 CLASS Parser
 
@@ -83,15 +85,14 @@ CLASS Parser
     FUNCTION parseResult(content: STRING): ParseResult
         result: ParseResult = ParseResult()
 
-        lines: STRING[] = splitLines(content)
-
-        # The final line break terminates the last line, it is not an extra empty line
-        # (this avoids adding a spurious line to a '>>' block at EOF, STXT-SPEC §10.3)
-        IF lines.length() > 0 AND lines.last() == ""
-            lines.pop()
-        END IF
-
-        parseLines(iterator(lines), result)
+        # The lines are produced lazily (lineIterator in core/platform.txt), not split up
+        # front: splitting the whole content materialises every line before the input-size
+        # limit can act (§11.2: it is checked as the input is consumed), so an input far
+        # above the limit cost memory proportional to its size instead of to the limit
+        # (210 MB of input took 2.6 GB before aborting). The iterator also applies the
+        # final-line-break rule: "a\n" is one line, not "a" plus an empty line (that would
+        # add a spurious line to a '>>' block at EOF, STXT-SPEC §10.3).
+        parseLines(lineIterator(content), result)
 
         RETURN result
     END FUNCTION

@@ -15,7 +15,11 @@ INTERFACE DiscoveryEnvironment
     # resolution chain, and an empty value leaves the chain empty.
     #
     # Returns the list of directories (highest precedence first), an empty array when
-    # the variable is defined but empty, or NULL when it is not defined at all.
+    # the variable is defined but empty, or NULL when it is not defined at all. Empty
+    # entries — left by a leading, trailing or doubled separator, as in ":/opt/defs" when
+    # the variable is extended from an undefined value — are dropped (STXT-DISCOVERY-SPEC
+    # §6): on platforms where the empty path names the working directory (java.nio) such
+    # an entry would silently make the current directory the level of highest precedence.
     FUNCTION getStxtPath(): STRING[]
 
     # The user-level resolution directory ("$HOME/.stxt" on Unix,

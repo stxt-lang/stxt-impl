@@ -15,6 +15,9 @@ EMPTY_NAMESPACE		= ""
 # CARDINALITY_NOT_VALID. Platform-independent: ports parse the number into a type that
 # holds at least this value (long in Java, Number in JS, int in Python).
 MAX_CARDINALITY     = 4294967295
+# Digits of MAX_CARDINALITY: a longer numeral exceeds the bound before it is converted
+# (schema/schema_parser.txt getInteger, template/child_line_parser.txt parseCount).
+MAX_CARDINALITY_DIGITS = 10
 
 # Parser limits (STXT-SPEC §11.2). The spec RECOMMENDS applying limits and these are its
 # recommended defaults; the official ports enable them. A parser that applies limits MUST

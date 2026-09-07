@@ -102,13 +102,16 @@ ABSTRACT CLASS Node
     END PROCEDURE
 
     # Effective namespace: the declared one or, failing that, the parent's effective one; "".
+    # Iterative, like getLevel(): a tree built by a program has no nesting limit, and a
+    # recursive walk overflowed the stack at a depth of a few thousand.
     FUNCTION getNamespace(): STRING
-        IF NOT isEmpty(declared_namespace)
-            RETURN declared_namespace
-        END IF
-        IF parent IS NOT NULL
-            RETURN parent.getNamespace()
-        END IF
+        n: Node = this_node
+        WHILE n IS NOT NULL
+            IF NOT isEmpty(n.declared_namespace)
+                RETURN n.declared_namespace
+            END IF
+            n = n.parent
+        END WHILE
         RETURN ""
     END FUNCTION
 
@@ -192,7 +195,15 @@ CLASS InlineNode EXTENDS Node
         RETURN value
     END FUNCTION
 
+    # A value is one source line (STXT-SPEC §5): a line break inside it has no
+    # representation, and the writer would emit it as a new line — which re-parses as
+    # another node, that is, structure injected through data (setValue(user_input)).
+    # Rejected here so the whole tree keeps the invariant. A lone CR is content (§3) and
+    # is not checked.
     PROCEDURE setValue(new_value: STRING)
+        IF new_value IS NOT NULL AND new_value.contains(LF)
+            THROW RuntimeException("LINE_BREAK_NOT_ALLOWED", "A node value cannot contain a line break")
+        END IF
         value = trimToNotNull(new_value)           # NULL -> ""
     END PROCEDURE
 
@@ -223,14 +234,24 @@ CLASS InlineNode EXTENDS Node
             THROW RuntimeException("NODE_ALREADY_ATTACHED", "Node '" + child.getName() + "' already has a parent: detach it first")
         END IF
 
-        # Walk up from this node (itself included) looking for the child among the ancestors
-        p: Node = this_node
-        WHILE p IS NOT NULL
-            IF p == child                          # identity
-                THROW RuntimeException("NODE_CYCLE", "Node '" + child.getName() + "' cannot be a child of itself or of one of its descendants")
-            END IF
-            p = p.getParent()
-        END WHILE
+        # Walk up from this node (itself included) looking for the child among the ancestors.
+        # The child has no parent, so it can only be an ancestor of this node if it is this
+        # node itself or if this node hangs below it — and for that the child must have
+        # children. A childless child (every node the parser attaches, and most built by a
+        # program) skips the walk, which is O(depth): a chain of n nodes is then built in
+        # O(n) instead of O(n²) (100 000 nodes took a minute).
+        IF child == this_node                      # identity
+            THROW RuntimeException("NODE_CYCLE", "Node '" + child.getName() + "' cannot be a child of itself or of one of its descendants")
+        END IF
+        IF child IS InlineNode AND child.getChildren().size() > 0
+            p: Node = this_node.getParent()
+            WHILE p IS NOT NULL
+                IF p == child                      # identity
+                    THROW RuntimeException("NODE_CYCLE", "Node '" + child.getName() + "' cannot be a child of itself or of one of its descendants")
+                END IF
+                p = p.getParent()
+            END WHILE
+        END IF
 
         children.insert(index, child)              # out of range is a platform error
         child.parent = this_node
@@ -336,13 +357,16 @@ CLASS TextNode EXTENDS Node
     END FUNCTION
 
     # Replaces the whole text: a STRING is split into lines (LF or CRLF); NULL empties the node.
+    # Lines given as a list MUST NOT contain a line break each (see addTextLine).
     PROCEDURE setText(text)
         lines = []
         IF text IS NOT NULL
             IF text IS STRING
                 lines = splitLines(text)           # "a\r\nb\n" -> ["a", "b", ""]
             ELSE
-                lines = copy(text)
+                FOREACH text_line IN text
+                    addTextLine(text_line)
+                END FOREACH
             END IF
         END IF
     END PROCEDURE
@@ -351,7 +375,15 @@ CLASS TextNode EXTENDS Node
         setText(new_lines)
     END PROCEDURE
 
+    # A text line is one source line (STXT-SPEC §6): a line break inside it has no
+    # representation — written out, the part after it lands at level 0 and re-parses as
+    # another node or as INVALID_LINE (structure injected through data). Same rule and
+    # code as InlineNode.setValue(); a program with a multi-line text passes it as a
+    # STRING to setText(), which splits it. A lone CR is content (§3) and is not checked.
     PROCEDURE addTextLine(text_line: STRING)
+        IF text_line.contains(LF)
+            THROW RuntimeException("LINE_BREAK_NOT_ALLOWED", "A text line cannot contain a line break")
+        END IF
         lines.push(text_line)
     END PROCEDURE
 

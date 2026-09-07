@@ -53,13 +53,13 @@ FUNCTION transformNodeToSchema(node: Node): Schema
     schema: Schema = Schema(root.getValue(), root.getLine(), description)
 
     # Canonical names of the declared Nodes (to check §8.1 below)
-    all_names: STRING[] = []
+    all_names: SET<STRING> = SET()             # O(1) membership: a schema may hold thousands of nodes
 
     # Each "Node" child of the schema defines a NodeDefinition
     FOREACH n IN root.getChildren("node")
         sch_node: NodeDefinition = createNodeDefinition(n, schema.getNamespace())
         schema.addNodeDefinition(sch_node)
-        all_names.push(sch_node.getCanonicalName())
+        all_names.add(sch_node.getCanonicalName())
     END FOREACH
 
     # Every Child of the schema's own namespace MUST refer to a Node declared in this
@@ -185,6 +185,14 @@ FUNCTION getInteger(node: InlineNode, child_name: STRING): INTEGER
     # Fail loudly when the value is not a valid integer
     IF NOT isInteger(n.getText())
         THROW ValidationException(node.getLine(), "CARDINALITY_NOT_VALID", "Integer not valid: " + n.getText())
+    END IF
+
+    # A numeral with more digits than MAX_CARDINALITY has (10, sign aside) exceeds the
+    # bound whatever its value: rejected before converting, so a platform that limits the
+    # digits of a string-to-integer conversion (Python raises past 4 300 digits) never
+    # gets to raise an unwrapped error.
+    IF digitsOf(n.getText()) > MAX_CARDINALITY_DIGITS
+        THROW ValidationException(node.getLine(), "CARDINALITY_NOT_VALID", "Cardinality above 4294967295: " + n.getText())
     END IF
 
     # Cardinalities are bounded to MAX_CARDINALITY = 4294967295 = 2^32 - 1

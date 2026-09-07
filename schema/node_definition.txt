@@ -12,8 +12,10 @@ CLASS NodeDefinition
     # Key = qualified name of the child (namespace:canonical_name)
     FIELD children: MAP<STRING, ChildDefinition> = {}
 
-    # Allowed values for the ENUM type. Set semantics: no duplicates.
-    FIELD values: STRING[] = []
+    # Allowed values for the ENUM type. Set semantics: no duplicates, O(1) membership
+    # (an ENUM of 40 000 values took 10 s to load with a list scan per value), insertion
+    # order kept for getValues().
+    FIELD values: ORDERED_SET<STRING> = SET()
 
     CONSTRUCTOR (name, type, line, description)
         name            = compactSpaces(name)
@@ -75,7 +77,7 @@ CLASS NodeDefinition
             THROW ValidationException(line, "VALUE_DUPLICATED", "The value " + value + " is duplicated")
         END IF
 
-        values.push(value)
+        values.add(value)
     END PROCEDURE
 
     # true if no restricted values are defined, or if the value is among the allowed ones

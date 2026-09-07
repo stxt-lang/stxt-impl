@@ -13,8 +13,27 @@ The specifications decide the language. This repository turns their normative ru
 into platform-neutral algorithms and data contracts. A port must be corrected when it
 disagrees with either one; this document does not create independent language rules.
 
-The canonical specifications are `../stxt-lang/es/stxt-*-ref.stxt`. At the time of this
-map (2026-08-16, updated 2026-08-27), STXT-SPEC has `Last modif: 2026-08-27` (the final empty
+The canonical specifications are `../stxt-lang/es/stxt-*-ref.stxt`. **Update of 2026-09-06
+(security review of the three ports, version 1.0.1 of the js and java ports and of this pseudocode, 1.0.2 of python):** no
+language change, but eight hardening decisions every port mirrors — `core/validations.txt`
+checks the namespace format with a linear scan (`isValidNamespaceFormat`) instead of the regex
+`^@?[a-z0-9]+(\.[a-z0-9]+)+$`, whose repeated group overflowed the Java stack at ~2 000
+labels; `core/string_utils.txt` `lowerCase` is ASCII-only, so U+212A KELVIN SIGN no longer
+lower-cases to `k` and `(Kelvin.x)` is `INVALID_NAMESPACE` (kit 1.0.1,
+`parse/namespace-kelvin-sign`), and every trim MUST be linear (the JS `[ \t]+$` was quadratic);
+`template/child_line_parser.txt` splits the RuleSpec with a hand-written `splitRuleSpec`
+instead of a pattern that backtracked in O(n³); `core/node.txt` rejects a LF in `setValue` and
+`addTextLine` (`LINE_BREAK_NOT_ALLOWED`, the structure injection a writer would otherwise
+produce), walks the ancestors in `addChild` only for a child with children, and resolves
+`getNamespace` iteratively; `core/parser.txt` consumes the lines lazily (`lineIterator` in
+`platform.txt`, LF/CRLF only — a lone CR is content, which the Java port got wrong) and every
+limit MUST be an integer ≥ 0 or -1; `schema/types.txt` `ENUM` no longer lists the allowed
+values in `INVALID_VALUE`; `schema/node_definition.txt` and `schema_parser.txt` use sets, and
+`getInteger`/`parseCount` reject a numeral longer than `MAX_CARDINALITY_DIGITS` before
+converting; `discovery/discovery_resolver.txt` keeps a visited set per level, guards
+`isDirectory`, and requires a finite `max_ascent`; `discovery_environment.txt` drops empty
+`STXT_PATH` entries (STXT-DISCOVERY-SPEC §6, sentence added the same day). Before that: at the
+time of this map (2026-08-16, updated 2026-08-27), STXT-SPEC has `Last modif: 2026-08-27` (the final empty
 lines of a `>>` block are discarded when it closes, §10.3, the 0.15.0 change — leading and
 intermediate ones are kept, an empty line still never closes a block, and a block of only
 blank lines is as empty as one with no lines; mirrored in `core/parser.txt` — the trim happens
@@ -208,6 +227,12 @@ the shared `stxt-lang` corpus. (Python: `test_core.py`, `test_providers.py`,
 | SchemaProvider contract | A `SchemaValidator` over the port's default provider chain (in-memory provider with the meta-schema provider as parent, or a resource-backed chain with a cache) validates a node whose namespace no provider knows. | `getSchema()` returns NULL at every level — meta providers, resource-backed providers, caches and chains included — and `validate()` returns exactly one finding, `SCHEMA_NOT_FOUND`, without throwing. No `RESOURCE_NOT_FOUND` or other not-found code surfaces from a provider. |
 | Empty namespace is never validated | A `SchemaValidator` (recursive) over a provider that knows nothing validates `Doc: x` with a free child and a child declaring an unknown namespace. | No finding for the root or the free child (namespace `""` is valid by definition, no lookup, no `SCHEMA_NOT_FOUND`); exactly one `SCHEMA_NOT_FOUND` for the namespaced child, at its line. STXT-SCHEMA-SPEC §5, since 2026-08-20. |
 | Combining marks in names | The names `हिंदी` (Devanagari, with `Mc`/`Mn` vowel signs) and `Q` + U+0301 (no precomposed form); and the names U+0301 alone and `a` + U+20DD (enclosing mark, `Me`). | The first two parse, canonical names `हिंदी` and `q` + U+0301; the last two are `INVALID_NODE_NAME` (a name needs a letter or digit; `Me` is not allowed). Conformance pair `conformance/tree/marks` (STXT-SPEC §4.2, since 2026-08-20). |
+| Namespace homograph and long namespaces | `N (\u212Aelvin.x): v` (U+212A KELVIN SIGN), and `N (` + 4 990 labels `a.` + `a): v`. | The first is `INVALID_NAMESPACE` at line 1: the ASCII check runs on the source characters, lower-casing maps A–Z only (`core/string_utils.txt` `lowerCase`). The second is a valid namespace, and the check is a linear scan (`core/validations.txt` `isValidNamespaceFormat`): no regex with a repeated group, which overflows a recursive engine. Conformance pair `conformance/parse/namespace-kelvin-sign` (kit 1.0.1, since 2026-09-06). |
+| Template RuleSpec without backtracking | `TEXT [` + 9 990 blanks + `x` as the value of a `Structure` line; and `[a]]`, `[a] [b]`, `TEXT (1)`, `()`, `((1))`, `(1[) TEXT`. | The first is `STRUCTURE_LINE_NOT_VALID` in milliseconds (`template/child_line_parser.txt` `splitRuleSpec`, a hand-written scan). `[a]]`, `[a] [b]`, `TEXT (1)`, `()` and `((1))` are `STRUCTURE_LINE_NOT_VALID`; `(1[) TEXT` is `CARDINALITY_NOT_VALID`. Every port agrees line by line (JS used to take `a]` as a value). |
+| Line breaks through the API | `setValue("a\nb: injected")`, `addTextLine("x\ny")`, `setText(["x\ny"])`; and `setValue("a\rb")`. | The first three are `LINE_BREAK_NOT_ALLOWED` (RuntimeException) and leave the node unchanged; a lone CR is content and is kept. `setText("x\ny")` (a STRING) splits into two lines. |
+| Lone CR is content in every entry point | `A: one\rB: two\r\nC: three\n` through `parse`, `parseResult`, `parseStream` and the file paths. | Two roots: `A` = `one\rB: two`, `C` = `three` (`core/platform.txt` `lineIterator`; STXT-SPEC §3). |
+| Empty STXT_PATH entries | `STXT_PATH` = `:/opt/defs::/x:` | `getStxtPath()` returns `["/opt/defs", "/x"]`; the empty entries never name the working directory (STXT-DISCOVERY-SPEC §6). |
+| Bounded discovery work | An injected file system whose every directory lists the same two subdirectories; an `isDirectory` that throws; a definition file above 4 × `DEFAULT_MAX_INPUT_SIZE` bytes; a FIFO under `.stxt/` (OS adapters). | The cycle lists 3 directories and resolves with no error (visited set per level); `resolve()` never throws (the throwing `isDirectory` means "not a directory"); the big file is `DISCOVERY_NOT_PARSEABLE` without being read; the FIFO is omitted from the listing. |
 | Blanks are only space and tab | `Root:` with children `Trailing: Joan<NBSP>`, `Leading:<NBSP>Joan`, `Only:<NBSP>` and a `Block >>` whose lines carry NBSP at the end, alone and in the middle; also a root line holding only an NBSP, `Block >><NBSP>`, and the names `Name<NBSP>: x` and `A<NBSP>B: x`. | Every NBSP is kept: values `"Joan<NBSP>"`, `"<NBSP>Joan"`, `"<NBSP>"`, block lines `["first<NBSP>", "<NBSP>", "in<NBSP>the<NBSP>middle"]`. The NBSP-only line is `INVALID_LINE` (not empty), `>>` followed by NBSP is `BLOCK_VALUE_NOT_ALLOWED`, and both names are `INVALID_NODE_NAME`; a line of spaces and tabs is still empty. `core/string_utils.txt` `trim`/`rightTrim`/`compactSpaces` work on U+0020/U+0009 only, never the platform trim. Conformance pair `conformance/tree/nbsp` (STXT-SPEC §4, since 2026-08-21). |
 | Calendar and clock ranges | `DATE` values `2024-02-29`, `0000-01-01`, `9999-12-31`; `2026-02-30`, `2026-13-01`, `2026-04-31`, `2023-02-29`. `TIME` `23:59:59`; `24:00:00`, `10:60:00`, `10:00:60`, `10:30:00.5`. `TIMESTAMP` `2026-08-21T10:30`, `…T10:30:00.1`, `…T10:30:00.123456Z`, `2024-02-29T23:59:59-23:59`; `2026-02-30T10:30`, `…T24:00`, `…T10:30:00+24:00`, `…T10:30:00+02:60`, `…T10:30:00.`, `…T10:30:00+0200`. `NUMBER` `+1`, `1.`, `.5`, `007`; `1e`, `1.2.3`. | The first group of each type validates and the second is `INVALID_VALUE`, identically in every port: the shape is the regular expression of `schema/types.txt`, the ranges are `isValidDate`/`isValidTime` (proleptic Gregorian, no leap second), never the platform date parser. STXT-SCHEMA-SPEC §9.3/§9.4, since 2026-08-21. |
 | Blanks inside binary values | `Hex: DE AD BE EF`, `Hex: DE\tAD`, `Bits: 1010 1010`, a `Base64 >>` block wrapped at 76 columns with leading and trailing blanks on each line, and an inline `Base64: SG Vs bG 8=`; also `Hex: DE:AD`, `Hex: DE-AD` and `Hex:` (empty after removing blanks). | The first group validates in every port — every space and tab is removed before applying the grammar, in both forms — and the second is `INVALID_VALUE`. STXT-SCHEMA-SPEC §9.5, since 2026-08-21 (0.10.0). |

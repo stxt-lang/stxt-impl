@@ -1,8 +1,19 @@
 # Platform: utilities that depend on the implementation language/platform.
 # Every port MUST provide an equivalent of these functions.
 
-# Splits the content into lines, accepting both "\n" and "\r\n" as line breaks.
+# Splits the content into lines, accepting both "\n" and "\r\n" as line breaks (a lone
+# "\r" is content, STXT-SPEC §3). The part after the last break is a line too, possibly
+# empty: "a\r\nb\n" gives ["a", "b", ""]. Used by TextNode.setText().
 FUNCTION splitLines(str: STRING): STRING[]
+END FUNCTION
+
+# Iterates the lines of the content LAZILY, with the same line breaks as splitLines, but
+# without the trailing empty line: the final line break terminates the last line, so
+# "a\nb\n" and "a\nb" both give "a", "b" (and "" gives no line). The parser consumes it
+# (core/parser.txt parseResult): a port MUST NOT materialise every line before the parser
+# has applied its limits to each. A port whose natural line source splits on more than
+# LF/CRLF (BufferedReader.readLine, str.splitlines, String.lines) MUST NOT use it here.
+FUNCTION lineIterator(str: STRING): ITERATOR<STRING>
 END FUNCTION
 
 # true if str represents a valid integer (sign allowed). Equivalent to "parseInteger would succeed".
