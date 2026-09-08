@@ -13,7 +13,14 @@ The specifications decide the language. This repository turns their normative ru
 into platform-neutral algorithms and data contracts. A port must be corrected when it
 disagrees with either one; this document does not create independent language rules.
 
-The canonical specifications are `../stxt-lang/es/stxt-*-ref.stxt`. **Update of 2026-09-06
+The canonical specifications are `../stxt-lang/es/stxt-*-ref.stxt`. **Update of 2026-09-07
+(version 1.0.2 of this pseudocode, of the js and java ports and of the CLI, 1.0.3 of python):**
+the specifications no longer carry a version number. Each one carries the date of its current
+text (`Last modif`) and a status that only moves forward — `Genesis` → `Aurora` → `Zenith` →
+`Twilight` (STXT-SPEC 1.1). `core/constants.txt` `SPEC_VERSION` is therefore the date of the
+STXT-SPEC text a port implements, as pinned by the conformance kit (itself dated), and the ports'
+tests tie it to the kit's manifest instead of to the `Metadata` of the specification. No
+language change. **Update of 2026-09-06
 (security review of the three ports, version 1.0.1 of the js and java ports and of this pseudocode, 1.0.2 of python):** no
 language change, but eight hardening decisions every port mirrors — `core/validations.txt`
 checks the namespace format with a linear scan (`isValidNamespaceFormat`) instead of the regex

@@ -30,6 +30,9 @@ DEFAULT_MAX_INPUT_SIZE  = 10000000   # max total input consumed
 # Version of the STXT specifications (STXT-SPEC, STXT-TREE-SPEC, STXT-SCHEMA-SPEC,
 # STXT-TEMPLATE-SPEC, STXT-DISCOVERY-SPEC) this implementation conforms to. It is NOT the
 # version of the port's package: two ports with different package versions read the same
-# STXT as long as this number is the same. Every port exposes it (since 0.10.0) and the
-# CLI prints it with --version. Shared by the five specifications; major.minor, no patch.
-SPEC_VERSION		= "1.0"
+# STXT as long as this value is the same. Every port exposes it (since 0.10.0) and the
+# CLI prints it with --version. The specifications carry no version number (STXT-SPEC 1.1):
+# the value is the date of the STXT-SPEC text the port implements, YYYY-MM-DD, as pinned by
+# the conformance kit (`specifications` of its manifest), not the `Last modif` of the
+# specification itself: an editorial change of the text does not move it.
+SPEC_VERSION		= "2026-09-07"
