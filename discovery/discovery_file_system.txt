@@ -9,19 +9,30 @@
 # Platform note: hosts with asynchronous I/O (e.g. JavaScript) implement these
 # operations as async; the resolver logic is the same either way.
 #
-# Symlink note (STXT-DISCOVERY-SPEC §3, §10): an implementation over a real file system
-# SHOULD NOT follow symbolic links at all. The recommended way is to OMIT every symlink
-# entry from the listing returned by listDirectory, both directory links and file links:
-#  - a directory link, if descended into, could lure the recursive descent into a symlink
-#    loop or into an unrelated tree;
-#  - a file link, if loaded as a definition, would read a file from outside the .stxt/
-#    (the levels of the chain include directories the validating party does not control),
-#    which could leak that file's content through a resolution error.
-# So a resolution directory loads only the real files it contains. The descent is also
-# bounded by DEFAULT_MAX_DESCENT in the resolver, independent of the adapter, and
-# listDirectory failures are tolerated per-directory (collectFilesAt), so neither a loop
-# nor an unreadable directory can turn resolution into unbounded recursion or an escaping
-# exception.
+# Symlink note (STXT-DISCOVERY-SPEC §3, §4.1, §4.2, §6, §10): symbolic links are followed
+# only where the user chose them.
+#  - INSIDE a resolution directory (§3, SHOULD NOT) an implementation over a real file
+#    system does not follow them. The recommended way is to OMIT every symlink entry from
+#    the listing returned by listDirectory, both directory links and file links: a directory
+#    link, if descended into, could lure the recursive descent into a symlink loop or into an
+#    unrelated tree; a file link, if loaded as a definition, would read a file from outside
+#    the .stxt/ (the levels of the chain include directories the validating party does not
+#    control), which could leak that file's content through a resolution error. So a
+#    resolution directory loads only the real files it contains.
+#  - AT THE PROJECT LEVEL (§4.1, MUST NOT) the `.stxt` entry of an ancestor that is itself a
+#    symbolic link forms no level: the resolver asks isSymbolicLink(candidate) during the
+#    ascent and skips the candidate when it is a link, whatever it points to. The ancestors
+#    are written by whoever created the project — a cloned repository — and a `.stxt -> /`
+#    or `.stxt -> $HOME` would make the tool walk that whole tree, parsing every file as a
+#    definition and leaking the line that fails to parse.
+#  - The USER level, the SYSTEM level and the STXT_PATH entries (§4.2, §6) ARE followed when
+#    they are links: the user chooses them, and `$HOME/.stxt` linked to a dotfiles
+#    repository is an intended use. The resolver only asks isDirectory there, which follows
+#    links.
+# The descent is also bounded by DEFAULT_MAX_DESCENT in the resolver, independent of the
+# adapter, and listDirectory failures are tolerated per-directory (collectFilesAt), so
+# neither a loop nor an unreadable directory can turn resolution into unbounded recursion
+# or an escaping exception.
 
 # An entry of a directory listing, as returned by listDirectory().
 CLASS DiscoveryEntry
@@ -33,7 +44,17 @@ END CLASS
 INTERFACE DiscoveryFileSystem
 
     # true if the path exists and is a directory; false otherwise (including I/O errors).
+    # Follows symbolic links: a linked user level, system level or STXT_PATH entry is a
+    # directory (§4.2, §6).
     FUNCTION isDirectory(path: STRING): BOOLEAN
+
+    # true if the path is a symbolic link — or, on Windows, a junction where the platform
+    # tells them apart — whatever it points to and whether or not the target exists; false
+    # otherwise (including I/O errors). Only consulted during the project-level ascent
+    # (§4.1): the `.stxt` of an ancestor that is itself a link forms no level. A port gives
+    # the operation a default that answers false, so an adapter over an abstraction with no
+    # links (an in-memory tree, a ZIP) and every adapter written before it keep working.
+    FUNCTION isSymbolicLink(path: STRING): BOOLEAN
 
     # The immediate entries of a directory, in any order.
     FUNCTION listDirectory(path: STRING): DiscoveryEntry[]

@@ -60,7 +60,9 @@ CLASS DiscoveryResolver
     #
     # Nothing thrown by the adapter escapes resolve() (§8: errors accumulate). The
     # fs.isDirectory calls below and in existingUnique are guarded like listDirectory
-    # and readFile: an adapter that throws there is treated as "not a directory". And
+    # and readFile: an adapter that throws there is treated as "not a directory", and one
+    # that throws in fs.isSymbolicLink is treated as "a link" — the conservative answer,
+    # the candidate is skipped. And
     # max_ascent MUST be a finite integer >= 0: a port rejects anything else when the
     # resolver is built (its platform's argument error) rather than letting an infinite
     # or NaN value turn a cyclic parentOf into an endless ascent.
@@ -82,7 +84,12 @@ CLASS DiscoveryResolver
             WHILE ascended < max_ascent AND dir IS NOT NULL
                 candidate: STRING = fs.join(dir, STXT_DIR)
 
-                IF fs.isDirectory(candidate)
+                # A candidate that is itself a symbolic link forms no level (§4.1, §10):
+                # the ancestors are written by whoever created the project, and a linked
+                # .stxt would take the resolution into a foreign tree. Asked before
+                # isDirectory, which follows links. The user and system levels below, and
+                # the STXT_PATH entries, are followed: the user chooses them.
+                IF NOT fs.isSymbolicLink(candidate) AND fs.isDirectory(candidate)
                     chain.push(candidate)
                 END IF
 
