@@ -26,13 +26,13 @@
 # the three parts, each NULL when absent and already trimmed when present. The rules the
 # old pattern enforced are kept exactly, so that no line changes meaning:
 #   - count runs from an opening "(" (only leading blanks before it) to the FIRST ")"
-#     after it. Once trimmed it MUST NOT be empty and MUST NOT start with "(" — "()",
+#     after it. Once trimmed it MUST NOT be empty and MUST NOT start with "(", "()",
 #     "( )" and "((1))" are not valid lines. Anything else is allowed inside: a bad count
 #     is CARDINALITY_NOT_VALID, not STRUCTURE_LINE_NOT_VALID.
 #   - type is everything after the count up to the first "[" (or the end), and MUST NOT
-#     contain "(", ")" or "]" — "TEXT (1)", "(1) (2)" and "TEXT a]" are not valid lines.
+#     contain "(", ")" or "]", "TEXT (1)", "(1) (2)" and "TEXT a]" are not valid lines.
 #   - values runs from that "[" to the FIRST "]" after it (a "[" inside is content; no
-#     "]" is not a valid line), and after the "]" only blanks may follow — "[a] b" and
+#     "]" is not a valid line), and after the "]" only blanks may follow, "[a] b" and
 #     "[a] [b]" are not valid lines.
 FUNCTION splitRuleSpec(raw_line: STRING): (count: STRING, type: STRING, values: STRING) | NULL
     n: INTEGER = raw_line.length()
@@ -188,7 +188,7 @@ FUNCTION parse(raw_line: STRING, line_number: INTEGER): ChildLine
 END FUNCTION
 
 # num, min and max must be NON-NEGATIVE integers, with no trailing text, and must not
-# exceed MAX_CARDINALITY = 4294967295 = 2^32 - 1 (§7.1) — the same bound as Min/Max in a
+# exceed MAX_CARDINALITY = 4294967295 = 2^32 - 1 (§7.1), the same bound as Min/Max in a
 # schema. See getInteger in schema/schema_parser.txt for the overflow note.
 FUNCTION parseCount(num: STRING, count: STRING, raw_line: STRING, line_number: INTEGER): INTEGER
     IF NOT isNatural(num)

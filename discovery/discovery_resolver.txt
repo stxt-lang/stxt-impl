@@ -8,7 +8,7 @@
 # a command line, an editor or a test (an in-memory tree).
 #
 # Loaded levels are cached by directory: resolving many documents that share levels
-# loads each directory once, which is the sharing that §7 allows — a level's content
+# loads each directory once, which is the sharing that §7 allows, a level's content
 # does not depend on which document is being resolved. Call clearCache() when the
 # underlying files may have changed.
 
@@ -61,7 +61,7 @@ CLASS DiscoveryResolver
     # Nothing thrown by the adapter escapes resolve() (§8: errors accumulate). The
     # fs.isDirectory calls below and in existingUnique are guarded like listDirectory
     # and readFile: an adapter that throws there is treated as "not a directory", and one
-    # that throws in fs.isSymbolicLink is treated as "a link" — the conservative answer,
+    # that throws in fs.isSymbolicLink is treated as "a link", the conservative answer,
     # the candidate is skipped. And
     # max_ascent MUST be a finite integer >= 0: a port rejects anything else when the
     # resolver is built (its platform's argument error) rather than letting an infinite
@@ -272,7 +272,7 @@ CLASS DiscoveryResolver
 
         key: STRING = lowerCase(schema.getNamespace())
 
-        # §8.1: on a same-level duplicate, NEVER silently pick one of the definitions —
+        # §8.1: on a same-level duplicate, NEVER silently pick one of the definitions,
         # the namespace has no active definition while the conflict exists, including
         # definitions at more distant levels.
         IF level.conflicted_namespaces.contains(key) OR level.definitions.containsKey(key)

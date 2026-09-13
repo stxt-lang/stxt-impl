@@ -22,7 +22,7 @@
 #  - AT THE PROJECT LEVEL (§4.1, MUST NOT) the `.stxt` entry of an ancestor that is itself a
 #    symbolic link forms no level: the resolver asks isSymbolicLink(candidate) during the
 #    ascent and skips the candidate when it is a link, whatever it points to. The ancestors
-#    are written by whoever created the project — a cloned repository — and a `.stxt -> /`
+#    are written by whoever created the project, a cloned repository, and a `.stxt -> /`
 #    or `.stxt -> $HOME` would make the tool walk that whole tree, parsing every file as a
 #    definition and leaking the line that fails to parse.
 #  - The USER level, the SYSTEM level and the STXT_PATH entries (§4.2, §6) ARE followed when
@@ -48,8 +48,8 @@ INTERFACE DiscoveryFileSystem
     # directory (§4.2, §6).
     FUNCTION isDirectory(path: STRING): BOOLEAN
 
-    # true if the path is a symbolic link — or, on Windows, a junction where the platform
-    # tells them apart — whatever it points to and whether or not the target exists; false
+    # true if the path is a symbolic link, or, on Windows, a junction where the platform
+    # tells them apart, whatever it points to and whether or not the target exists; false
     # otherwise (including I/O errors). Only consulted during the project-level ascent
     # (§4.1): the `.stxt` of an ancestor that is itself a link forms no level. A port gives
     # the operation a default that answers false, so an adapter over an abstraction with no
@@ -61,7 +61,7 @@ INTERFACE DiscoveryFileSystem
 
     # Reads a file as UTF-8 text. The decode is STRICT (STXT-SPEC §3): input that is not
     # valid UTF-8 MUST be rejected (an I/O-level error, like a missing file), never decoded
-    # by silently substituting the invalid sequences with U+FFFD — silent substitution
+    # by silently substituting the invalid sequences with U+FFFD, silent substitution
     # would make two tools see different documents from the same bytes.
     FUNCTION readFile(path: STRING): STRING
 

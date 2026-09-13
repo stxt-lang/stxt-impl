@@ -1,12 +1,12 @@
 # The node model of the STXT tree.
 #
 # Node is ABSTRACT, with exactly two concrete forms (a closed hierarchy; each port enforces
-# it with its own means — a sealed class in Java, classes in TypeScript):
+# it with its own means, a sealed class in Java, classes in TypeScript):
 #
-#   * InlineNode  — "Name: value": an optional inline value and an ordered list of children.
+#   * InlineNode  ("Name: value"): an optional inline value and an ordered list of children.
 #                   The only form with children, and so the only one with child lookups and
 #                   the only one that creates children (addInlineNode / addTextNode).
-#   * TextNode    — "Name >>": an ordered list of literal text lines. No value, no children.
+#   * TextNode    ("Name >>"): an ordered list of literal text lines. No value, no children.
 #
 # Each form owns only what is really its own; Node keeps what is common: name and canonical
 # name, declared and effective namespace, source line, parent, isTextNode() and getText().
@@ -23,7 +23,7 @@
 #
 # Namespaces: a node stores the namespace it DECLARES (possibly none). Its EFFECTIVE
 # namespace (getNamespace()) is the declared one or, failing that, the effective namespace of
-# its parent — STXT-SPEC §7: namespaces are inherited vertically, never laterally between
+# its parent, STXT-SPEC §7: namespaces are inherited vertically, never laterally between
 # roots. Consequences: changing the declared namespace of a node changes the effective
 # namespace of the whole subtree that inherited it; moving a subtree makes it inherit from
 # its new parent; a detached subtree keeps only what it declares. The parser therefore hands
@@ -170,7 +170,7 @@ END CLASS
 
 
 # ============================================================================
-# InlineNode — "Name: value"
+# InlineNode ("Name: value")
 # ============================================================================
 CLASS InlineNode EXTENDS Node
 
@@ -196,7 +196,7 @@ CLASS InlineNode EXTENDS Node
     END FUNCTION
 
     # A value is one source line (STXT-SPEC §5): a line break inside it has no
-    # representation, and the writer would emit it as a new line — which re-parses as
+    # representation, and the writer would emit it as a new line, which re-parses as
     # another node, that is, structure injected through data (setValue(user_input)).
     # Rejected here so the whole tree keeps the invariant. A lone CR is content (§3) and
     # is not checked.
@@ -236,7 +236,7 @@ CLASS InlineNode EXTENDS Node
 
         # Walk up from this node (itself included) looking for the child among the ancestors.
         # The child has no parent, so it can only be an ancestor of this node if it is this
-        # node itself or if this node hangs below it — and for that the child must have
+        # node itself or if this node hangs below it, and for that the child must have
         # children. A childless child (every node the parser attaches, and most built by a
         # program) skips the walk, which is O(depth): a chain of n nodes is then built in
         # O(n) instead of O(n²) (100 000 nodes took a minute).
@@ -334,15 +334,15 @@ END CLASS
 
 
 # ============================================================================
-# TextNode — "Name >>"
+# TextNode ("Name >>")
 # ============================================================================
 CLASS TextNode EXTENDS Node
 
     FIELD lines: STRING[] = []
 
     # Constructors, same argument rule as InlineNode: with two arguments the second one is the
-    # CONTENT (the text as a STRING, split at every LF or CRLF — the part after the last break
-    # is a line too, possibly empty — or the lines themselves).
+    # CONTENT (the text as a STRING, split at every LF or CRLF, the part after the last break
+    # is a line too, possibly empty, or the lines themselves).
     CONSTRUCTOR (name)
     CONSTRUCTOR (name, text)
     CONSTRUCTOR (name, namespace, text)
@@ -376,7 +376,7 @@ CLASS TextNode EXTENDS Node
     END PROCEDURE
 
     # A text line is one source line (STXT-SPEC §6): a line break inside it has no
-    # representation — written out, the part after it lands at level 0 and re-parses as
+    # representation, written out, the part after it lands at level 0 and re-parses as
     # another node or as INVALID_LINE (structure injected through data). Same rule and
     # code as InlineNode.setValue(); a program with a multi-line text passes it as a
     # STRING to setText(), which splits it. A lone CR is content (§3) and is not checked.

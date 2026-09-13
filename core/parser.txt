@@ -8,9 +8,9 @@
 # is closed (validated and notified to the observers), and the new node is created,
 # ATTACHED to its parent (the top of the stack; or kept as a root if the stack is empty)
 # and pushed onto the stack, still open. Attaching at creation links both ends of the
-# parent link (core/node.txt), so the node already knows its parent — and so its effective
-# namespace and its level — when the observers see it in onCreate(). A document may hold
-# multiple root nodes, which close under concatenation (STXT-SPEC §8.5 — logs/streaming
+# parent link (core/node.txt), so the node already knows its parent, and so its effective
+# namespace and its level, when the observers see it in onCreate(). A document may hold
+# multiple root nodes, which close under concatenation (STXT-SPEC §8.5, logs/streaming
 # friendly).
 #
 # Three entry points over the same traversal:
@@ -32,7 +32,7 @@
 # nesting depth, line length or input size limits, set to the DEFAULT_MAX_* values of
 # core/constants.txt unless configured; -1 disables one. A limit error is a
 # LimitException (exceptions/exceptions.txt) and ABORTS the parse in every mode: it is
-# emitted (collected and/or notified) and nothing else is processed or notified — the
+# emitted (collected and/or notified) and nothing else is processed or notified, the
 # nodes still open are not closed. Every port exposes the three limits with its own
 # idiom (an options object, setters, keyword arguments), keeping these names
 # recognizable: max_nesting, max_line_length, max_input_size. Each limit MUST be an
@@ -80,7 +80,7 @@ CLASS Parser
     END FUNCTION
 
     # Multi-error mode: parses the whole content collecting every error found
-    # (both syntax and validation) without bailing out on the first one — except a
+    # (both syntax and validation) without bailing out on the first one, except a
     # LimitException, which aborts and is in every case the last error collected.
     FUNCTION parseResult(content: STRING): ParseResult
         result: ParseResult = ParseResult()
@@ -98,7 +98,7 @@ CLASS Parser
     END FUNCTION
 
     # Streaming mode: input from a line iterator (each item one line, without its
-    # line break; ports take their platform's natural line source — a lazy reader,
+    # line break; ports take their platform's natural line source, a lazy reader,
     # a generator, an iterable), and nothing retained. Results reach the program
     # only through the registered StreamObservers.
     PROCEDURE parseStream(lines: ITERATOR<STRING>)
@@ -147,7 +147,7 @@ CLASS Parser
 
     # Processes one source line. Errors of this line are collected into the result and
     # the traversal continues with the next line: returns true to keep going, false when
-    # a limit aborted the parse (its error is already emitted) — parseLines() stops on it.
+    # a limit aborted the parse (its error is already emitted), parseLines() stops on it.
     FUNCTION processLine(line_string, line_number, stack, result): BOOLEAN
         TRY
             last_node: Node = NULL
@@ -245,7 +245,7 @@ CLASS Parser
 
     # Closes every node deeper than target_level: runs the validators over it and notifies
     # the observers. (The node was attached to its parent when it was created.) When the
-    # node closed is a root — the stack is left empty — the StreamObservers receive it
+    # node closed is a root, the stack is left empty, the StreamObservers receive it
     # complete by onRootNode(), and it is collected into the result if there is one
     # (parse()/parseResult()) or released (parseStream()).
     PROCEDURE closeToLevel(stack: Node[], target_level: INTEGER, result: ParseResult | NULL)

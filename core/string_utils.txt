@@ -52,7 +52,7 @@ END FUNCTION
 # if str is NULL. Used for namespaces, which are ASCII by definition (STXT-SPEC §7.1), and
 # it MUST NOT be the platform's Unicode lower case: that one maps U+212A KELVIN SIGN to
 # "k", so "(\u212Aelvin.x)" became the valid namespace "kelvin.x" in every port until
-# 2026-09-06 — the homograph §7.1 exists to rule out. With an ASCII map the sign reaches
+# 2026-09-06, the homograph §7.1 exists to rule out. With an ASCII map the sign reaches
 # validateNamespaceFormat unchanged and is rejected.
 FUNCTION lowerCase (str)
 END FUNCTION

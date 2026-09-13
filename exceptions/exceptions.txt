@@ -5,7 +5,7 @@
 # applies, getLine().
 #
 # Message framing (since 0.10.0, the same in every port): getMessage() returns ONLY
-# the description, with no code and no line — "Level of indent incorrect: 2". The
+# the description, with no code and no line, "Level of indent incorrect: 2". The
 # code and the line are separate fields, and whoever formats output (a CLI, an editor)
 # composes them; putting them in the message printed them twice. The frame lives in
 # the platform's string form of the exception (toString / __str__), so an uncaught
@@ -57,7 +57,7 @@ END CLASS
 # A parser limit exceeded (STXT-SPEC §11.2): nesting depth, line length or input
 # size. Extends ParseException (it carries the line where the limit was hit), but
 # unlike any other parse error it ABORTS the parse: it is emitted and no further
-# input is processed, in every mode — fail-fast, multi-error and streaming — so it
+# input is processed, in every mode, fail-fast, multi-error and streaming, so it
 # is always the last error. Exceeding a limit does not make the document invalid:
 # the same document may parse under higher limits.
 CLASS LimitException EXTENDS ParseException
@@ -110,7 +110,7 @@ END CLASS
 # exact strings; messages are free text.
 # -------------------------------------------------------------------
 
-# STXT-SPEC §11.1 — syntax (ParseException)
+# STXT-SPEC §11.1: syntax (ParseException)
 #   INDENTATION_SPACES_NOT_VALID   §11.1  spaces not a multiple of 4            (was INVALID_NUMBER_SPACES)
 #   INDENTATION_MIXED              §11.2  tabs and spaces on one line           (was MIXED_INDENTATION)
 #   INDENTATION_LEVEL_NOT_VALID    §11.3  jump of more than one level
@@ -120,12 +120,12 @@ END CLASS
 #   INVALID_NAMESPACE              §11.9  malformed namespace
 #   UNEXPECTED_ERROR               wrapper for an unforeseen exception          (was VALIDATION_ERROR / UNKNOWN_VALIDATION_ERROR)
 
-# STXT-SPEC §11.2 — parser limits (LimitException; they abort the parse; since 0.14.0)
+# STXT-SPEC §11.2: parser limits (LimitException; they abort the parse; since 0.14.0)
 #   LIMIT_NESTING_EXCEEDED         a line opens a node at level >= max nesting (default 100)
 #   LIMIT_LINE_LENGTH_EXCEEDED     one input line longer than max line length (default 10000)
 #   LIMIT_INPUT_SIZE_EXCEEDED      total input consumed over max input size (default 10000000)
 
-# STXT-SCHEMA-SPEC §13.1 — schema load (ValidationException)
+# STXT-SCHEMA-SPEC §13.1: schema load (ValidationException)
 #   SCHEMA_ROOT_NOT_VALID          root not 'Schema (@stxt.schema): ns' or ns invalid   (was NOT_STXT_SCHEMA)
 #   SCHEMA_NAMESPACE_EMPTY         target namespace empty                              (was INVALID_SCHEMA)
 #   SCHEMA_MULTIPLE_ROOTS          != 1 root node                                      (was INVALID_SCHEMA)
@@ -144,7 +144,7 @@ END CLASS
 #   CHILD_DUPLICATED               two Child with the same name+namespace             (was CHILD_DEF_ALREADY_DEFINED)
 #   CHILD_NOT_DEFINED              same-namespace Child without its Node
 
-# STXT-SCHEMA-SPEC §13.1 — document validation (ValidationException)
+# STXT-SCHEMA-SPEC §13.1: document validation (ValidationException)
 #   SCHEMA_NOT_FOUND               namespaced node without schema
 #   NODE_NOT_DEFINED_IN_SCHEMA     node name not a Node of its schema                  (was NODE_NOT_EXIST_IN_SCHEMA)
 #   CHILD_NOT_DECLARED             undeclared direct child (closed model)
@@ -158,7 +158,7 @@ END CLASS
 #   TYPE_NOT_VALID                 type of the schema unknown to the implementation   (was TYPE_NOT_SUPPORTED)
 #   UNEXPECTED_ERROR               wrapper, with the node's line
 
-# STXT-TEMPLATE-SPEC §14.1 — template load (ValidationException)
+# STXT-TEMPLATE-SPEC §14.1: template load (ValidationException)
 #   TEMPLATE_ROOT_NOT_VALID, TEMPLATE_NAMESPACE_EMPTY, TEMPLATE_MULTIPLE_ROOTS   (parallel to SCHEMA_*)
 #   TEMPLATE_STRUCTURE_REQUIRED
 #   STRUCTURE_LINE_NOT_VALID                                                      (was INVALID_CHILD_LINE)
@@ -176,7 +176,7 @@ END CLASS
 #   DESCRIPTION_NOT_ALLOWED_IN_EXTERNAL_NAMESPACE                                 (was EXTERNAL_DESCRIPTION_NOT_ALLOWED)
 #   DESCRIPTION_DUPLICATED                                                        (was DESCRIPTION_ALREADY_DEFINED)
 
-# STXT-DISCOVERY-SPEC §9 — DISCOVERY_NOT_PARSEABLE, DISCOVERY_NOT_A_DEFINITION, DISCOVERY_INVALID_DEFINITION, DISCOVERY_DUPLICATE_NAMESPACE (unchanged)
+# STXT-DISCOVERY-SPEC §9: DISCOVERY_NOT_PARSEABLE, DISCOVERY_NOT_A_DEFINITION, DISCOVERY_INVALID_DEFINITION, DISCOVERY_DUPLICATE_NAMESPACE (unchanged)
 
 # In-memory API (RuntimeException, not conformance surface)
 #   AMBIGUOUS_CHILD, NODE_ALREADY_ATTACHED, NODE_CYCLE, TYPE_DUPLICATED (was DUPLICATED_TYPE)

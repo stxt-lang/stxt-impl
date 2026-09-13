@@ -11,7 +11,7 @@
 #
 # Packaging note: this blueprint keeps every type in ONE file so the whole model can
 # be read side by side. Implementations typically split them one type per file
-# (stxt-js src/schema/type/, stxt-java dev.stxt.schema.type) — do whatever is
+# (stxt-js src/schema/type/, stxt-java dev.stxt.schema.type), do whatever is
 # idiomatic on your platform; only the names, codes and behavior are normative.
 
 # -------------------------------------------------------------------
@@ -183,7 +183,7 @@ CLASS ENUM IMPLEMENTS Type
             # The message deliberately does NOT list the allowed values: every invalid node
             # would carry a copy of the whole list, and a large ENUM (which may come from a
             # .stxt/ the author of the document does not control) times a document with
-            # many invalid nodes multiplies memory — 100 000 values × 5 000 nodes gave 4 GB
+            # many invalid nodes multiplies memory, 100 000 values × 5 000 nodes gave 4 GB
             # of messages. The list stays available through NodeDefinition.getValues().
             THROW ValidationException(n.getLine(), "INVALID_VALUE",
                 "The value '" + value + "' is not one of the allowed values of " + ns_node.getName())
@@ -243,7 +243,7 @@ END CLASS
 
 # INTEGER: integer with an optional sign.
 # (Like BOOLEAN, the class name coincides with a basic pseudocode type: that is fine,
-# context disambiguates — "x: INTEGER" is an annotation, this is a schema value type.)
+# context disambiguates, "x: INTEGER" is an annotation, this is a schema value type.)
 CLASS INTEGER EXTENDS RegexValue
     FIELD P_INTEGER: REGEX = "^[-+]?\\d+$"
     CONSTRUCTOR ()
@@ -370,7 +370,7 @@ END CLASS
 # anything are rejected. Limits (the practical RFC 5321 ones): local part 1-64, whole
 # address at most 254, TLD 2-63 ASCII letters. ASCII only (no EAI); dots are permissive
 # (the full RFC 5322 dot-atom is not replicated). Blanks are the STXT ones (STXT-SPEC §4):
-# U+0020 and U+0009 only — not the platform's \s.
+# U+0020 and U+0009 only, not the platform's \s.
 CLASS EMAIL EXTENDS RegexValue
     # Address (local@domain, with length limits) as it reads at the end of the value ...
     FIELD ADDRESS: STRING = "(?=.{1,254}$)(?=[^@]{1,64}@)[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,63}"

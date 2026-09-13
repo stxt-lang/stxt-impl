@@ -120,7 +120,7 @@ PROCEDURE addToSchema(schema: Schema, node: Node)
 END PROCEDURE
 
 # Cross-namespace node (§6.4, §10 and §14.15): NOT defined locally; it may only
-# declare cardinality — no type, no ENUM values and no children.
+# declare cardinality, no type, no ENUM values and no children.
 PROCEDURE validateExternalNode(node: InlineNode, cl: ChildLine)
 
     type: STRING = cl.getType()
