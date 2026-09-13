@@ -1,4 +1,28 @@
-# Pseudocode Style Guide
+# stxt-impl
+
+The platform-neutral implementation of **STXT**: the algorithms and data contracts of the parser,
+the node model, the writer and the formatter, the schema and template layers and the discovery of
+definitions, written in a small pseudo-language so that a port to any programming language can be
+written from this repository and the specifications alone. It is the second authority of the
+ecosystem, after the specifications in [stxt-lang](https://github.com/stxt-lang/stxt-lang): a
+port that disagrees with either one is the one corrected.
+
+| Directory | Contents |
+|---|---|
+| `core/` | The parser and its result, the node model, the writer, the formatter, the canonical JSON tree, constants, string utilities and validations |
+| `processors/` | The extension points: `Observer`, `StreamObserver` and `Validator` |
+| `schema/` | Schemas: parser, provider, validator, definitions and value types |
+| `template/` | Templates and their compilation to schemas |
+| `discovery/` | The resolution of definitions (STXT-DISCOVERY-SPEC) |
+| `exceptions/` | The exception hierarchy and its error codes |
+
+[`TRACEABILITY.md`](TRACEABILITY.md) maps every rule of the specifications to the file that
+implements it and records each change. The ports written from this blueprint are
+[stxt-js](https://github.com/stxt-lang/stxt-js), [stxt-java](https://github.com/stxt-lang/stxt-java)
+and [stxt-python](https://github.com/stxt-lang/stxt-python). The rest of this file is the style
+guide every `.txt` file follows.
+
+# Pseudocode style guide
 
 ## 1. Purpose
 
@@ -200,7 +224,7 @@ UserRepository
 ```
 
 A class name may coincide with a basic type name (§4.1) when mirroring a domain
-concept (e.g. the schema value types `BOOLEAN` or `INTEGER`): context disambiguates —
+concept (e.g. the schema value types `BOOLEAN` or `INTEGER`): context disambiguates:
 `x: INTEGER` is a type annotation, `CLASS INTEGER` declares a class.
 
 Inside a method, `this_node` (or, generally, `this_<class>`) names the object the method
@@ -309,7 +333,7 @@ IF is_active == true AND NOT is_blocked
 
 ## 11. Booleans
 
-Boolean values are expressed simply.
+Boolean values are the two literals:
 
 ```text
 true
