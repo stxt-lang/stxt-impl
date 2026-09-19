@@ -1,11 +1,27 @@
 # stxt-impl
 
-The platform-neutral implementation of **STXT**: the algorithms and data contracts of the parser,
-the node model, the writer and the formatter, the schema and template layers and the discovery of
-definitions, written in a small pseudo-language so that a port to any programming language can be
-written from this repository and the specifications alone. It is the second authority of the
-ecosystem, after the specifications in [stxt-lang](https://github.com/stxt-lang/stxt-lang): a
-port that disagrees with either one is the one corrected.
+The platform-neutral implementation of [**STXT**](https://stxt.dev), written in a small
+pseudo-language. A port to any programming language can be written from this repository and
+the specifications alone.
+
+It is the second authority of the ecosystem, after the specifications in
+[stxt-lang](https://github.com/stxt-lang/stxt-lang). When a port disagrees with either one,
+the port is corrected.
+
+An excerpt of [`core/node.txt`](core/node.txt):
+
+```text
+FUNCTION getChildren(cname: STRING, child_namespace: STRING): Node[]
+    key: STRING = normalizeChars(cname)
+    result: Node[] = []
+    FOREACH child IN children
+        IF child.getCanonicalName() == key AND child.getNamespace() == child_namespace
+            result.push(child)
+        END IF
+    END FOREACH
+    RETURN result
+END FUNCTION
+```
 
 | Directory | Contents |
 |---|---|
@@ -16,11 +32,13 @@ port that disagrees with either one is the one corrected.
 | `discovery/` | The resolution of definitions (STXT-DISCOVERY-SPEC) |
 | `exceptions/` | The exception hierarchy and its error codes |
 
-[`TRACEABILITY.md`](TRACEABILITY.md) maps every rule of the specifications to the file that
-implements it and records each change. The ports written from this blueprint are
-[stxt-js](https://github.com/stxt-lang/stxt-js), [stxt-java](https://github.com/stxt-lang/stxt-java)
-and [stxt-python](https://github.com/stxt-lang/stxt-python). The rest of this file is the style
-guide every `.txt` file follows.
+- [`TRACEABILITY.md`](TRACEABILITY.md) maps every rule of the specifications to the file that
+  implements it, and records each change.
+- The ports written from this pseudocode are [stxt-js](https://github.com/stxt-lang/stxt-js),
+  [stxt-java](https://github.com/stxt-lang/stxt-java) and
+  [stxt-python](https://github.com/stxt-lang/stxt-python).
+
+The rest of this file is the style guide that every `.txt` file follows.
 
 # Pseudocode style guide
 
@@ -29,8 +47,6 @@ guide every `.txt` file follows.
 This pseudo-language is used to **describe logic, control flow and responsibilities**
 of a system in a clear and consistent way, without depending on the syntax
 or the constraints of any specific programming language.
-
----
 
 ## 2. Keywords
 
@@ -79,7 +95,6 @@ END PROCEDURE
 END CLASS
 END STRUCTURE
 ```
----
 
 ## 3. Variables
 
@@ -99,8 +114,6 @@ total_price
 is_active
 retry_count
 ```
-
----
 
 ## 4. Variable typing
 
@@ -176,8 +189,6 @@ A map is assumed to have the following methods:
 * size(): Number of entries
 * A value is retrieved/assigned with variable_name[key]
 
----
-
 ## 5. Functions and procedures
 
 Functions and procedures represent behavior.
@@ -203,8 +214,6 @@ Functions and procedures represent behavior.
 FUNCTION calculateTotalPrice
 PROCEDURE sendNotification
 ```
-
----
 
 ## 6. Classes
 
@@ -249,8 +258,6 @@ CLASS InlineNode EXTENDS Node
 END CLASS
 ```
 
----
-
 ## 7. Assignment
 
 Assignment uses a single operator.
@@ -267,8 +274,6 @@ variable = expression
 total_price = unit_price * quantity
 retry_count = retry_count + 1
 ```
-
----
 
 ## 8. Arithmetic operators
 
@@ -288,8 +293,6 @@ retry_count = retry_count + 1
 is_even = (n % 2) == 0
 ```
 
----
-
 ## 9. Comparison operators
 
 Common and recognizable operators are used, avoiding non-standard symbols.
@@ -305,8 +308,6 @@ Common and recognizable operators are used, avoiding non-standard symbols.
 ```text
 IF age >= 18
 ```
-
----
 
 ## 10. Boolean operators
 
@@ -329,8 +330,6 @@ NOT
 IF is_active == true AND NOT is_blocked
 ```
 
----
-
 ## 11. Booleans
 
 Boolean values are the two literals:
@@ -339,8 +338,6 @@ Boolean values are the two literals:
 true
 false
 ```
-
----
 
 ## 12. NULL and the IS operator
 
@@ -363,8 +360,6 @@ END IF
   discriminant field...). Inside that branch the value is used as that class.
 * Every other comparison uses the operators of §9.
 
----
-
 ## 13. Blocks and indentation
 
 * Indentation is mandatory and significant for reading.
@@ -382,8 +377,6 @@ ELSE
     applyDiscount("minor")
 END IF
 ```
-
----
 
 ## 14. Loop control
 
@@ -406,8 +399,6 @@ FOREACH item IN items
 END FOREACH
 ```
 
----
-
 ## 15. Exceptions
 
 Exceptions are thrown with `THROW` and caught with `TRY` / `CATCH`.
@@ -429,8 +420,6 @@ CATCH e
 END TRY
 ```
 
----
-
 ## 16. Comments
 
 Comments are used to explain intent or context, not to describe the obvious.
@@ -445,8 +434,6 @@ Comments are used to explain intent or context, not to describe the obvious.
 ```text
 # Validate user before processing the order
 ```
-
----
 
 ## 17. Complete example
 
@@ -469,7 +456,6 @@ CLASS Order
 
 END CLASS
 
-
 FUNCTION processOrder(order, payment_service)
 
     payment_successful = payment_service.processPayment(order)
@@ -485,13 +471,9 @@ FUNCTION processOrder(order, payment_service)
 END FUNCTION
 ```
 
----
-
 ## 18. Key principles
 
 * Consistency over exhaustiveness.
 * Clarity over brevity.
 * Independence from any concrete language.
 * Easy translation to real code.
-
-This convention is suitable for technical documentation, system design, logic review and communication between teams.
